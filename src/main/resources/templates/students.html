@@ -1,0 +1,311 @@
+
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
+    <title>Manage Students | Cobabe Code LMS</title>
+    <link rel="stylesheet" th:href="@{/style.css}">
+    <style>
+        body {
+            background: #0f172a;
+            color: #f8fafc;
+            font-family: Arial, sans-serif;
+        }
+        main {
+            max-width: 1150px;
+            margin: 30px auto;
+            padding: 20px;
+        }
+        h1, h2 { color: #fb923c; }
+        .muted { color: #94a3b8; }
+        .topbar, .actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .panel {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 22px;
+            margin: 20px 0;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns:
+                repeat(auto-fit, minmax(200px, 1fr));
+            gap: 14px;
+        }
+        label {
+            display: block;
+            margin-bottom: 7px;
+            font-weight: bold;
+        }
+        input, select {
+            padding: 11px;
+            background: #020617;
+            color: white;
+            border: 1px solid #475569;
+            border-radius: 7px;
+            box-sizing: border-box;
+            width: 100%;
+        }
+        button, .button {
+            display: inline-block;
+            background: #f97316;
+            color: #111827;
+            padding: 11px 16px;
+            border: none;
+            border-radius: 7px;
+            text-decoration: none;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .secondary {
+            background: #334155;
+            color: white;
+        }
+        .student-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding: 18px 0;
+            border-bottom: 1px solid #334155;
+        }
+        .student-row:last-child { border-bottom: none; }
+        .student-row h3 { margin: 0 0 5px; }
+        .student-row form { display: flex; gap: 8px; }
+        .student-row select { width: auto; }
+        .message {
+            border-radius: 8px;
+            padding: 12px;
+            margin: 15px 0;
+        }
+        .success { background: #14532d; }
+        .error { background: #7f1d1d; }
+        .credentials {
+            background: #312e81;
+            border: 1px solid #6366f1;
+        }
+        .credentials code {
+            display: block;
+            padding: 5px;
+            overflow-wrap: anywhere;
+        }
+        .danger {
+            background: #dc2626;
+            color: white;
+        }
+
+        .danger:hover {
+            background: #b91c1c;
+        }
+    </style>
+</head>
+<body>
+<main>
+
+    <header class="topbar">
+        <div>
+            <h1>☕ Manage Students</h1>
+            <p class="muted">
+                Create accounts and manage class enrollment.
+            </p>
+        </div>
+        <a class="button secondary"
+           th:href="@{/teacher}">
+            ← Teacher Dashboard
+        </a>
+    </header>
+
+    <div class="message success"
+         th:if="${success}"
+         th:text="${success}"></div>
+
+    <div class="message error"
+         th:if="${error}"
+         th:text="${error}"></div>
+
+    <section class="panel credentials"
+             th:if="${credentials}">
+        <h2 style="color:white">
+            New Login Credentials
+        </h2>
+        <p>
+            Copy these credentials now.
+            Passwords cannot be recovered later.
+        </p>
+        <code th:each="entry : ${credentials}"
+              th:text="${entry}"></code>
+    </section>
+
+    <section class="panel">
+        <h2>Add Student</h2>
+
+        <form th:action="@{/teacher/students/create}"
+              method="post"
+              class="grid">
+
+            <div>
+                <label for="name">Student Name</label>
+                <input id="name" name="name"
+                       maxlength="120" required>
+            </div>
+
+            <div>
+                <label for="username">Username</label>
+                <input id="username" name="username"
+                       maxlength="40" required>
+            </div>
+
+            <div>
+                <label for="classId">Class Period</label>
+                <select id="classId" name="classId" required>
+                    <option value="">Select class</option>
+                    <option th:each="cls : ${classes}"
+                            th:value="${cls.id}"
+                            th:text="${cls.name + ' - Period '
+                                      + cls.periodNumber}">
+                    </option>
+                </select>
+            </div>
+
+            <div style="align-self:end">
+                <button type="submit">
+                    + Create Student
+                </button>
+            </div>
+        </form>
+    </section>
+
+    <section class="panel">
+        <h2>Import Students from CSV</h2>
+        <p class="muted">
+            Upload a UTF-8 CSV containing
+            name and username columns.
+        </p>
+
+        <form th:action="@{/teacher/students/import}"
+              method="post"
+              enctype="multipart/form-data"
+              class="grid">
+
+            <div>
+                <label for="importClass">
+                    Import Into Class
+                </label>
+                <select id="importClass"
+                        name="classId" required>
+                    <option value="">Select class</option>
+                    <option th:each="cls : ${classes}"
+                            th:value="${cls.id}"
+                            th:text="${cls.name + ' - Period '
+                                      + cls.periodNumber}">
+                    </option>
+                </select>
+            </div>
+
+            <div>
+                <label for="file">CSV File</label>
+                <input id="file" name="file"
+                       type="file" accept=".csv,text/csv"
+                       required>
+            </div>
+
+            <div style="align-self:end">
+                <button type="submit">
+                    Import Roster
+                </button>
+            </div>
+        </form>
+    </section>
+
+    <section class="panel">
+        <h2>Student Roster</h2>
+
+        <form method="get"
+              th:action="@{/teacher/students}"
+              class="actions">
+            <select name="classId"
+                    aria-label="Filter by class">
+                <option value="">All Classes</option>
+                <option th:each="cls : ${classes}"
+                        th:value="${cls.id}"
+                        th:selected="${cls.id == selectedClassId}"
+                        th:text="${cls.name + ' - Period '
+                                  + cls.periodNumber}">
+                </option>
+            </select>
+            <button type="submit">Filter</button>
+        </form>
+
+        <p class="muted"
+           th:if="${#lists.isEmpty(students)}">
+            No students found.
+        </p>
+
+        <div class="student-row"
+             th:each="student : ${students}">
+
+            <div>
+                <h3 th:text="${student.name}">
+                    Student Name
+                </h3>
+                <p class="muted">
+                    Username:
+                    <span th:text="${student.username}">
+                    </span>
+                </p>
+            </div>
+
+            <div class="actions">
+                <form th:action="@{/teacher/students/{id}/move
+                        (id=${student.id})}"
+                      method="post">
+                    <select name="classId"
+                            aria-label="Change class">
+                        <option th:each="cls : ${classes}"
+                                th:value="${cls.id}"
+                                th:selected="${student.classPeriod != null
+                                  and cls.id == student.classPeriod.id}"
+                                th:text="${cls.name + ' - Period '
+                                          + cls.periodNumber}">
+                        </option>
+                    </select>
+                    <button type="submit" class="secondary">
+                        Move
+                    </button>
+                </form>
+
+                <form th:action="@{/teacher/students/{id}/reset-password
+                        (id=${student.id})}"
+                      method="post"
+                      onsubmit="return confirm('Reset this password?');">
+                    <button type="submit">
+                        Reset Password
+                    </button>
+                </form>
+
+                <form th:action="@{/teacher/students/{id}/delete(id=${student.id})}"
+                      method="post"
+                      onsubmit="return confirm('Are you sure you want to permanently delete this student? This action cannot be undone.');">
+
+                    <button type="submit" class="danger">
+                        Delete Student
+                    </button>
+
+                </form>
+
+            </div>
+        </div>
+    </section>
+
+</main>
+</body>
+</html>

@@ -86,7 +86,11 @@
                 </strong>
             </p>
         </div>
-
+        <a th:href="@{/student/password}">
+            <button class="button" type="submit">
+                Change Password
+            </button>
+        </a>
         <form th:action="@{/logout}" method="post">
             <button class="button logout" type="submit">
                 Log Out

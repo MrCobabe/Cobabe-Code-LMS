@@ -1,0 +1,246 @@
+
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Manage Classes | Cobabe Code LMS</title>
+
+    <link rel="stylesheet" th:href="@{/style.css}">
+
+    <style>
+        body {
+            background: #0f172a;
+            color: #f8fafc;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            max-width: 1150px;
+            margin: 35px auto;
+            padding: 20px;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        h1, h2 {
+            color: #fb923c;
+        }
+
+        .muted {
+            color: #94a3b8;
+        }
+
+        .panel {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 24px;
+            margin-top: 24px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr auto;
+            gap: 12px;
+            align-items: end;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 12px;
+            border: 1px solid #475569;
+            border-radius: 7px;
+            background: #020617;
+            color: white;
+        }
+
+        button, .button {
+            display: inline-block;
+            padding: 12px 18px;
+            background: #f97316;
+            color: #111827;
+            border: none;
+            border-radius: 7px;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        .secondary {
+            background: #334155;
+            color: white;
+        }
+
+        .danger {
+            background: #991b1b;
+            color: white;
+        }
+
+        .class-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+            border-bottom: 1px solid #334155;
+            padding: 20px 0;
+        }
+
+        .class-row:last-child {
+            border-bottom: none;
+        }
+
+        .class-row h3 {
+            margin: 0 0 8px;
+        }
+
+        .class-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .success {
+            background: #14532d;
+        }
+
+        .error {
+            background: #7f1d1d;
+        }
+
+        @media (max-width: 750px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+<main class="container">
+
+    <header class="topbar">
+        <div>
+            <h1>☕ Manage Classes</h1>
+            <p class="muted">
+                Create and organize your programming classes.
+            </p>
+        </div>
+
+        <a class="button secondary"
+           th:href="@{/teacher}">
+            ← Teacher Dashboard
+        </a>
+    </header>
+
+    <div class="message success"
+         th:if="${success}"
+         th:text="${success}">
+    </div>
+
+    <div class="message error"
+         th:if="${error}"
+         th:text="${error}">
+    </div>
+
+    <section class="panel">
+        <h2>Create New Class</h2>
+
+        <form th:action="@{/teacher/classes/create}"
+              method="post"
+              class="form-grid">
+
+            <div>
+                <label for="name">Class Name</label>
+                <input id="name"
+                       name="name"
+                       maxlength="100"
+                       placeholder="7th Grade Intro to Programming"
+                       required>
+            </div>
+
+            <div>
+                <label for="periodNumber">Period</label>
+                <input id="periodNumber"
+                       name="periodNumber"
+                       type="number"
+                       min="1"
+                       max="20"
+                       required>
+            </div>
+
+            <button type="submit">
+                + Create Class
+            </button>
+        </form>
+    </section>
+
+    <section class="panel">
+        <h2>Existing Classes</h2>
+
+        <p class="muted"
+           th:if="${#lists.isEmpty(classes)}">
+            You haven't created any classes yet.
+        </p>
+
+        <div class="class-row"
+             th:each="cls : ${classes}">
+
+            <div>
+                <h3 th:text="${cls.name}">
+                    Class Name
+                </h3>
+
+                <p class="muted">
+                    Period
+                    <span th:text="${cls.periodNumber}">
+                        1
+                    </span>
+
+                    ·
+
+                    <span th:text="${studentCounts[cls.id]}">
+                        0
+                    </span>
+                    students
+                </p>
+            </div>
+
+            <div class="class-actions">
+                <form th:action="@{/teacher/classes/{id}/delete(id=${cls.id})}"
+                      method="post"
+                      onsubmit="return confirm('Delete this class?');">
+
+                    <button type="submit" class="danger">
+                        Delete
+                    </button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+</main>
+</body>
+</html>

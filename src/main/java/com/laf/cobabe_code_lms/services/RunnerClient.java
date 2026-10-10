@@ -1,4 +1,4 @@
-package com.laf.cobabe_code_lms;
+package com.laf.cobabe_code_lms.services;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.http.*;

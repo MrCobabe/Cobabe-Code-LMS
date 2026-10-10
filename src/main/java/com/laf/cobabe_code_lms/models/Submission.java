@@ -1,4 +1,4 @@
-package com.laf.cobabe_code_lms;
+package com.laf.cobabe_code_lms.models;
 import jakarta.persistence.*;
 import java.time.Instant;
 @Entity public class Submission {
