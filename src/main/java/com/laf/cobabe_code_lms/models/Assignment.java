@@ -12,6 +12,9 @@ public class Assignment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long id;
 
+    @Column(nullable = false)
+    public int maxPoints = 100;
+
     @Column(nullable = false, length = 160)
     public String title;
 

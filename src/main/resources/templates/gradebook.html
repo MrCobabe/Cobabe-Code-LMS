@@ -1,0 +1,801 @@
+
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
+
+    <title>Gradebook | Cobabe Code LMS</title>
+
+    <meta name="gradebook-base"
+          th:content="@{/teacher/gradebook}">
+
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: #0f172a;
+            color: #f8fafc;
+            font-family: Arial, sans-serif;
+        }
+
+        main {
+            max-width: 1600px;
+            margin: auto;
+            padding: 20px;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        h1 {
+            margin: 0 0 5px;
+            color: #fb923c;
+        }
+
+        .muted { color: #94a3b8; }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        select, .button {
+            padding: 10px 12px;
+            border-radius: 6px;
+            border: 1px solid #475569;
+            background: #1e293b;
+            color: white;
+            font-size: 14px;
+        }
+
+        .button {
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .primary {
+            background: #f97316;
+            color: #111827;
+            border-color: #f97316;
+            font-weight: bold;
+        }
+
+        .grid-container {
+            overflow: auto;
+            max-height: 75vh;
+            border: 1px solid #64748b;
+            background: #111827;
+        }
+
+        table {
+            border-collapse: separate;
+            border-spacing: 0;
+            width: max-content;
+            min-width: 100%;
+            table-layout: fixed;
+        }
+
+        th, td {
+            border-right: 1px solid #64748b;
+            border-bottom: 1px solid #64748b;
+            padding: 0;
+            text-align: center;
+            height: 31px;
+        }
+
+        thead th {
+            position: sticky;
+            top: 0;
+            z-index: 3;
+            height: 57px;
+            background: #1e293b;
+        }
+
+        .student-heading, .student-name {
+            position: sticky;
+            left: 0;
+            width: 175px;
+            min-width: 175px;
+            max-width: 175px;
+            text-align: left;
+            padding: 0 10px;
+        }
+
+        .student-heading {
+            z-index: 5;
+        }
+
+        .student-name {
+            z-index: 2;
+            background: #1e293b;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        tbody tr:nth-child(even) .student-name {
+            background: #263449;
+        }
+
+        .average-heading, .average {
+            position: sticky;
+            left: 175px;
+            width: 75px;
+            min-width: 75px;
+            max-width: 75px;
+            background: #253348;
+        }
+
+        .average-heading { z-index: 5; }
+
+        .average {
+            z-index: 2;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .assignment-heading {
+            width: 83px;
+            min-width: 83px;
+            max-width: 83px;
+        }
+
+        .assignment-heading a {
+            display: flex;
+            height: 100%;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 3px;
+            text-decoration: none;
+            color: white;
+        }
+
+        .assignment-heading a:hover {
+            background: #334155;
+            color: #fdba74;
+        }
+
+        .assignment-title {
+            font-size: 11px;
+            line-height: 13px;
+            max-width: 77px;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        .points {
+            color: #94a3b8;
+            font-size: 10px;
+        }
+
+        .grade {
+            width: 83px;
+            min-width: 83px;
+            max-width: 83px;
+        }
+
+        .grade-cell {
+            width: 100%;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            font-family: inherit;
+            border: none;
+            color: white;
+            cursor: pointer;
+        }
+
+        .grade-cell:hover {
+            outline: 2px solid #fff;
+            outline-offset: -2px;
+        }
+
+        .graded { background: #166534; }
+        .submitted { background: #1d4ed8; }
+        .resubmitted { background: #b45309; }
+        .missing { background: #303947; color: #cbd5e1; }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 18px;
+            margin-top: 15px;
+            color: #cbd5e1;
+            font-size: 12px;
+        }
+
+        .key {
+            display: inline-block;
+            width: 13px;
+            height: 13px;
+            vertical-align: middle;
+            margin-right: 5px;
+            border: 1px solid #94a3b8;
+        }
+
+        dialog {
+            background: #1e293b;
+            color: white;
+            border: 1px solid #64748b;
+            border-radius: 10px;
+            padding: 24px;
+            width: min(420px, 90vw);
+        }
+
+        dialog::backdrop {
+            background: rgba(0,0,0,.65);
+        }
+
+        dialog h2 {
+            margin-top: 0;
+            color: #fb923c;
+        }
+
+        .assignment-dialog {
+            width: min(750px, 95vw);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .assignment-dialog form {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .assignment-dialog label {
+            font-size: 13px;
+            font-weight: bold;
+            margin-top: 12px;
+        }
+
+        .assignment-dialog input[type="text"],
+        .assignment-dialog input[type="number"],
+        .assignment-dialog textarea {
+            width: 100%;
+            padding: 11px;
+            border: 1px solid #475569;
+            border-radius: 6px;
+            background: #0f172a;
+            color: white;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .assignment-dialog textarea {
+            min-height: 130px;
+            resize: vertical;
+        }
+
+        .assignment-dialog .code-input {
+            min-height: 210px;
+            font-family: Consolas, monospace;
+            tab-size: 4;
+        }
+
+        .class-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 6px;
+        }
+
+        .assignment-dialog .class-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+            padding: 10px;
+            background: #334155;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .dialog-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+
+        .assignment-heading-button {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 4px;
+            padding: 3px;
+            background: transparent;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .assignment-heading-button:hover {
+            background: #334155;
+            color: #fdba74;
+        }
+
+        .delete-button {
+            background: #dc2626;
+            color: white;
+            border-color: #dc2626;
+        }
+
+        .delete-button:hover {
+            background: #b91c1c;
+        }
+
+
+    </style>
+</head>
+
+<body>
+<main>
+
+    <header class="toolbar">
+        <div>
+            <h1>Gradebook</h1>
+            <span class="muted">
+                Cobabe Code LMS
+            </span>
+        </div>
+
+        <div class="controls">
+            <form th:action="@{/teacher/gradebook}"
+                  method="get">
+
+                <select name="classId"
+                        aria-label="Class period"
+                        onchange="this.form.submit()">
+
+                    <option th:each="cls : ${classes}"
+                            th:value="${cls.id}"
+                            th:selected="${cls.id == selectedClassId}"
+                            th:text="${cls.name + ' — Period ' + cls.periodNumber}">
+                    </option>
+                </select>
+            </form>
+
+            <button type="button"
+                    class="button primary"
+                    onclick="document.getElementById('assignmentDialog').showModal()">
+                + Assignment
+            </button>
+
+            <a class="button"
+               th:href="@{/teacher}">
+                Dashboard
+            </a>
+        </div>
+    </header>
+
+    <p th:if="${success}"
+       th:text="${success}"
+       style="color:#86efac;"></p>
+
+    <p th:if="${error}"
+       th:text="${error}"
+       style="color:#fca5a5;"></p>
+
+    <div class="grid-container">
+        <table>
+            <thead>
+            <tr>
+                <th class="student-heading">Student</th>
+                <th class="average-heading">Average</th>
+
+                <th class="assignment-heading"
+                    th:each="assignment : ${assignments}">
+
+
+                    <button type="button"
+                            class="assignment-heading-button"
+                            th:attr="data-id=${assignment.id},
+                 data-title=${assignment.title},
+                 data-description=${assignment.description},
+                 data-code=${assignment.starterCode},
+                 data-points=${assignment.maxPoints}"
+                            th:title="${assignment.title}"
+                            onclick="openEditAssignment(this)">
+
+    <span class="assignment-title"
+          th:text="${assignment.title}">
+    </span>
+
+                        <span class="points"
+                              th:text="${assignment.maxPoints + ' pts ✎'}">
+    </span>
+                    </button>
+                    <input type="hidden"
+                           class="assignment-class-ids"
+                           th:value="${#strings.listJoin(assignment.classPeriods.![id], ',')}">
+
+                </th>
+            </tr>
+            </thead>
+
+            <tbody>
+            <tr th:each="row : ${rows}">
+
+                <td class="student-name"
+                    th:text="${row.name}">
+                </td>
+
+                <td class="average"
+                    th:text="${row.average}">
+                </td>
+
+                <td class="grade"
+                    th:each="cell, stat : ${row.cells}">
+
+                    <button type="button"
+                            class="grade-cell"
+                            th:classappend="${c ell.status}"
+                            th:attr="data-student=${row.name},
+                                     data-assignment=${assignments[stat.index].title},
+                                     data-status=${cell.status},
+                                     data-score=${cell.score},
+                                     data-max=${cell.maxPoints}"
+                            onclick="showGrade(this)">
+
+                        <span th:if="${cell.status == 'missing'}">
+                            —
+                        </span>
+
+                        <span th:if="${cell.status == 'submitted'}">
+                            ●
+                        </span>
+
+                        <span th:if="${cell.status == 'graded'}"
+                              th:text="${cell.score}">
+                        </span>
+
+                        <span th:if="${cell.status == 'resubmitted'}"
+                              th:text="${cell.score != null ? cell.score + ' ↻' : '↻'}">
+                        </span>
+                    </button>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <p class="muted"
+       th:if="${#lists.isEmpty(classes)}">
+        No class periods yet. Create a class first.
+    </p>
+
+    <div class="legend">
+        <span><i class="key graded"></i> Graded</span>
+        <span><i class="key submitted"></i> Needs grading</span>
+        <span><i class="key resubmitted"></i> Resubmitted</span>
+        <span><i class="key missing"></i> Not submitted</span>
+    </div>
+
+    <dialog id="editAssignmentDialog" class="assignment-dialog">
+
+        <h2>Edit Assignment</h2>
+
+        <form id="editAssignmentForm" method="post">
+            <input type="hidden"
+                   th:name="${_csrf.parameterName}"
+                   th:value="${_csrf.token}">
+
+            <input type="hidden"
+                   name="returnClassId"
+                   th:value="${selectedClassId}">
+
+            <label for="editTitle">Assignment Title</label>
+
+            <input type="text"
+                   id="editTitle"
+                   name="title"
+                   maxlength="160"
+                   required>
+
+            <label for="editPoints">Maximum Points</label>
+
+            <input type="number"
+                   id="editPoints"
+                   name="maxPoints"
+                   min="1"
+                   max="10000"
+                   required>
+
+            <label for="editDescription">Instructions</label>
+
+            <textarea id="editDescription"
+                      name="description"
+                      maxlength="12000"></textarea>
+
+            <label for="editCode">Java Starter Code</label>
+
+            <textarea id="editCode"
+                      name="starterCode"
+                      class="code-input"
+                      maxlength="12000"
+                      spellcheck="false"></textarea>
+
+            <label>Assigned Class Periods</label>
+
+            <div class="class-list">
+                <label class="class-checkbox"
+                       th:each="cls : ${allClasses}">
+
+                    <input type="checkbox"
+                           name="classIds"
+                           th:value="${cls.id}">
+
+                    <span th:text="${cls.name + ' — Period ' + cls.periodNumber}">
+                </span>
+                </label>
+            </div>
+
+            <div class="dialog-actions">
+                <button type="button"
+                        class="button"
+                        onclick="document.getElementById('editAssignmentDialog').close()">
+                    Cancel
+                </button>
+
+                <button type="submit" class="button primary">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+
+        <hr style="border:0;border-top:1px solid #475569;margin:24px 0;">
+
+
+        <form id="deleteAssignmentForm"
+              method="post"
+              onsubmit="return confirm('Are you sure you want to permanently delete this assignment? This cannot be undone.');">
+
+            <input type="hidden"
+                   name="returnClassId"
+                   th:value="${selectedClassId}">
+
+            <input type="hidden"
+                   th:name="${_csrf.parameterName}"
+                   th:value="${_csrf.token}">
+
+            <button type="submit"
+                    class="button delete-button">
+                Delete Assignment
+            </button>
+
+        </form>
+
+
+    </dialog>
+
+    <dialog id="assignmentDialog" class="assignment-dialog">
+
+        <h2>+ New Assignment</h2>
+
+        <form th:action="@{/teacher/gradebook/assignments/create}"
+              method="post">
+
+            <input type="hidden"
+                   name="returnClassId"
+                   th:value="${selectedClassId}">
+
+            <label for="assignmentTitle">
+                Assignment Title
+            </label>
+
+            <input type="text"
+                   id="assignmentTitle"
+                   name="title"
+                   maxlength="160"
+                   placeholder="Hello World"
+                   required>
+
+            <label for="assignmentPoints">
+                Maximum Points
+            </label>
+
+            <input type="number"
+                   id="assignmentPoints"
+                   name="maxPoints"
+                   value="100"
+                   min="1"
+                   max="10000"
+                   required>
+
+            <label for="assignmentDescription">
+                Instructions
+            </label>
+
+            <textarea id="assignmentDescription"
+                      name="description"
+                      maxlength="12000"
+                      placeholder="Explain what students need to program..."></textarea>
+
+            <label for="assignmentCode">
+                Java Starter Code
+            </label>
+
+            <textarea id="assignmentCode"
+                      name="starterCode"
+                      class="code-input"
+                      maxlength="12000"
+                      spellcheck="false">public class Main {
+    public static void main(String[] args) {
+
+    }
+}</textarea>
+
+            <label>Assign to Class Periods</label>
+
+            <div class="class-list">
+
+                <label class="class-checkbox"
+                       th:each="cls : ${allClasses}">
+
+                    <input type="checkbox"
+                           name="classIds"
+                           th:value="${cls.id}"
+                           th:checked="${cls.id == selectedClassId}">
+
+                    <span th:text="${cls.name + ' — Period ' + cls.periodNumber}">
+                </span>
+
+                </label>
+
+            </div>
+
+            <div class="dialog-actions">
+                <button type="button"
+                        class="button"
+                        onclick="document.getElementById('assignmentDialog').close()">
+                    Cancel
+                </button>
+
+                <button type="submit"
+                        class="button primary">
+                    Create Assignment
+                </button>
+            </div>
+
+        </form>
+
+    </dialog>
+
+    <dialog id="gradeDialog">
+        <h2 id="dialogStudent"></h2>
+        <p id="dialogAssignment"></p>
+        <p id="dialogStatus"></p>
+        <p id="dialogScore"></p>
+
+        <p class="muted">
+            Submission review and grading controls
+            will be connected in the next step.
+        </p>
+
+        <button class="button"
+                onclick="document.getElementById('gradeDialog').close()">
+            Close
+        </button>
+    </dialog>
+
+</main>
+
+<script>
+    function showGrade(button) {
+        const d = button.dataset;
+
+        document.getElementById("dialogStudent")
+            .textContent = d.student;
+
+        document.getElementById("dialogAssignment")
+            .textContent = d.assignment;
+
+        const labels = {
+            graded: "Graded",
+            submitted: "Submitted — needs grading",
+            resubmitted: "Resubmitted — needs grading again",
+            missing: "Not submitted"
+        };
+
+        document.getElementById("dialogStatus")
+            .textContent = "Status: " + labels[d.status];
+
+        document.getElementById("dialogScore")
+            .textContent = d.score
+            ? "Current grade: " + d.score + " / " + d.max
+            : "No grade yet";
+
+        document.getElementById("gradeDialog").showModal();
+    }
+
+    function openEditAssignment(button) {
+
+        const dialog = document.getElementById(
+            "editAssignmentDialog"
+        );
+
+        const form = document.getElementById(
+            "editAssignmentForm"
+        );
+
+        const deleteForm = document.getElementById(
+            "deleteAssignmentForm"
+        );
+
+        const assignmentId = button.dataset.id;
+
+        // Use the application's context path if deployed
+        // somewhere other than the server root.
+        const gradebookBase =
+            document.querySelector(
+                'meta[name="gradebook-base"]'
+            ).content;
+
+        form.action =
+            gradebookBase + "/assignments/" +
+            encodeURIComponent(assignmentId) + "/edit";
+
+        deleteForm.action =
+            gradebookBase + "/assignments/" +
+            encodeURIComponent(assignmentId) + "/delete";
+
+        document.getElementById("editTitle").value =
+            button.dataset.title || "";
+
+        document.getElementById("editDescription").value =
+            button.dataset.description || "";
+
+        document.getElementById("editCode").value =
+            button.dataset.code || "";
+
+        document.getElementById("editPoints").value =
+            button.dataset.points || 100;
+
+        const idsInput = button.closest("th")
+            .querySelector(".assignment-class-ids");
+
+        const selectedIds = new Set(
+            (idsInput.value || "")
+                .split(",")
+                .filter(Boolean)
+        );
+
+        dialog.querySelectorAll(
+            'input[name="classIds"]'
+        ).forEach(checkbox => {
+
+            checkbox.checked = selectedIds.has(
+                checkbox.value
+            );
+        });
+
+        dialog.showModal();
+    }
+
+</script>
+
+</body>
+</html>
