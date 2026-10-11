@@ -1,0 +1,132 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cobabe Runner Test</title>
+
+    <meta name="_csrf" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:content="${_csrf.headerName}">
+
+    <style>
+        body {
+            background: #171717;
+            color: white;
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        textarea {
+            width: 100%;
+            box-sizing: border-box;
+            background: #252525;
+            color: #f5f5f5;
+            border: 1px solid #555;
+            border-radius: 8px;
+            padding: 14px;
+            font-family: Consolas, monospace;
+            font-size: 14px;
+        }
+
+        button {
+            background: #f58220;
+            color: #111;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 22px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
+        pre {
+            background: #080808;
+            padding: 20px;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>Cobabe Java Runner — JSON Test</h1>
+
+<p>
+    This page tests JSON communication.
+    Submitted Java code is not executed yet.
+</p>
+
+<h3>Java Code</h3>
+
+<textarea id="code" rows="12">public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello from the website!");
+    }
+}</textarea>
+
+<h3>Console Input</h3>
+
+<textarea id="input" rows="3"
+          placeholder="Optional Scanner input"></textarea>
+
+<button id="runButton" onclick="testRunner()">
+    Test Runner
+</button>
+
+<h3>Runner Response</h3>
+
+<pre id="result">Waiting for test...</pre>
+
+<script>
+    async function testRunner() {
+        const button = document.getElementById("runButton");
+        const result = document.getElementById("result");
+
+        button.disabled = true;
+        result.textContent = "Contacting runner...";
+
+        const csrfToken =
+            document.querySelector('meta[name="_csrf"]').content;
+
+        const csrfHeader =
+            document.querySelector('meta[name="_csrf_header"]').content;
+
+        try {
+            const response = await fetch(
+                "/teacher/api/runner/json-test",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        [csrfHeader]: csrfToken
+                    },
+                    body: JSON.stringify({
+                        code: document.getElementById("code").value,
+                        input: document.getElementById("input").value
+                    })
+                }
+            );
+
+            const body = await response.text();
+
+            try {
+                result.textContent =
+                    JSON.stringify(JSON.parse(body), null, 2);
+            } catch {
+                result.textContent = body;
+            }
+
+        } catch (error) {
+            result.textContent = "Error: " + error.message;
+        } finally {
+            button.disabled = false;
+        }
+    }
+</script>
+
+</body>
+</html>

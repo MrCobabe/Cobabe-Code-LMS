@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
@@ -12,7 +11,9 @@
           th:content="@{/teacher/gradebook}">
 
     <style>
-        * { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+        }
 
         body {
             margin: 0;
@@ -41,7 +42,9 @@
             color: #fb923c;
         }
 
-        .muted { color: #94a3b8; }
+        .muted {
+            color: #94a3b8;
+        }
 
         .controls {
             display: flex;
@@ -136,7 +139,9 @@
             background: #253348;
         }
 
-        .average-heading { z-index: 5; }
+        .average-heading {
+            z-index: 5;
+        }
 
         .average {
             z-index: 2;
@@ -207,10 +212,22 @@
             outline-offset: -2px;
         }
 
-        .graded { background: #166534; }
-        .submitted { background: #1d4ed8; }
-        .resubmitted { background: #b45309; }
-        .missing { background: #303947; color: #cbd5e1; }
+        .graded {
+            background: #166534;
+        }
+
+        .submitted {
+            background: #1d4ed8;
+        }
+
+        .resubmitted {
+            background: #b45309;
+        }
+
+        .missing {
+            background: #303947;
+            color: #cbd5e1;
+        }
 
         .legend {
             display: flex;
@@ -240,7 +257,7 @@
         }
 
         dialog::backdrop {
-            background: rgba(0,0,0,.65);
+            background: rgba(0, 0, 0, .65);
         }
 
         dialog h2 {
@@ -428,10 +445,10 @@
                               th:text="${assignment.maxPoints + ' pts ✎'}">
     </span>
                     </button>
-                    <input type="hidden"
-                           class="assignment-class-ids"
-                           th:value="${#strings.listJoin(assignment.classPeriods.![id], ',')}">
-
+                    <div class="assignment-class-ids" hidden>
+                        <span th:each="period : ${assignment.classPeriods}"
+                              th:attr="data-class-id=${period.id}"></span>
+                    </div>
                 </th>
             </tr>
             </thead>
@@ -452,13 +469,14 @@
 
                     <button type="button"
                             class="grade-cell"
-                            th:classappend="${c ell.status}"
-                            th:attr="data-student=${row.name},
-                                     data-assignment=${assignments[stat.index].title},
-                                     data-status=${cell.status},
-                                     data-score=${cell.score},
-                                     data-max=${cell.maxPoints}"
-                            onclick="showGrade(this)">
+                            th:classappend="${cell.status}"
+                            th:attr="data-submission-id=${cell.submissionId},
+                 data-student=${row.name},
+                 data-assignment=${assignments[stat.index].title},
+                 data-status=${cell.status},
+                 data-score=${cell.score},
+                 data-max=${cell.maxPoints}"
+                            onclick="openSubmission(this)">
 
                         <span th:if="${cell.status == 'missing'}">
                             —
@@ -704,31 +722,18 @@
 </main>
 
 <script>
-    function showGrade(button) {
-        const d = button.dataset;
+    function openSubmission(button) {
 
-        document.getElementById("dialogStudent")
-            .textContent = d.student;
+        const submissionId = button.dataset.submissionId;
 
-        document.getElementById("dialogAssignment")
-            .textContent = d.assignment;
+        if (!submissionId) {
+            alert("This student has not submitted this assignment yet.");
+            return;
+        }
 
-        const labels = {
-            graded: "Graded",
-            submitted: "Submitted — needs grading",
-            resubmitted: "Resubmitted — needs grading again",
-            missing: "Not submitted"
-        };
-
-        document.getElementById("dialogStatus")
-            .textContent = "Status: " + labels[d.status];
-
-        document.getElementById("dialogScore")
-            .textContent = d.score
-            ? "Current grade: " + d.score + " / " + d.max
-            : "No grade yet";
-
-        document.getElementById("gradeDialog").showModal();
+        window.location.href =
+            "/teacher/submission/" +
+            encodeURIComponent(submissionId);
     }
 
     function openEditAssignment(button) {
@@ -774,13 +779,11 @@
         document.getElementById("editPoints").value =
             button.dataset.points || 100;
 
-        const idsInput = button.closest("th")
-            .querySelector(".assignment-class-ids");
-
         const selectedIds = new Set(
-            (idsInput.value || "")
-                .split(",")
-                .filter(Boolean)
+            Array.from(
+                button.closest("th")
+                    .querySelectorAll(".assignment-class-ids [data-class-id]")
+            ).map(element => element.dataset.classId)
         );
 
         dialog.querySelectorAll(

@@ -1,1 +1,652 @@
-<!doctype html><html xmlns:th="http://www.thymeleaf.org"><head><meta charset="utf-8"><title>Java Editor</title><link rel="stylesheet" href="/style.css"></head><body><header><a href="/dashboard">← Assignments</a><strong th:text="${assignment.title}"></strong></header><main><p th:text="${assignment.description}"></p><form id="runform" method="post" action="/api/run"><input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><label for="code">Main.java</label><textarea id="code" name="code" spellcheck="false" rows="18" th:text="${assignment.starterCode}"></textarea><label for="stdin">Program input (stdin)</label><textarea id="stdin" name="stdin" rows="3"></textarea><button type="submit">▶ Run</button></form><pre id="output">Console output will appear here.</pre><form th:action="@{/assignment/{id}/submit(id=${assignment.id})}" method="post"><input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><input type="hidden" name="code" id="submissionCode"><button type="submit" onclick="document.getElementById('submissionCode').value=document.getElementById('code').value">Submit assignment</button></form></main><script>document.getElementById('runform').addEventListener('submit',async e=>{e.preventDefault();let out=document.getElementById('output');out.textContent='Running...';try{let r=await fetch('/api/run',{method:'POST',body:new FormData(e.target)});out.textContent=await r.text();}catch(e){out.textContent='Request failed';}});</script></body></html>
+
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
+
+    <meta name="_csrf" th:content="${_csrf.token}">
+    <meta name="_csrf_header"
+          th:content="${_csrf.headerName}">
+
+    <title th:text="${assignment.title} + ' | Cobabe Code LMS'">
+        Java Assignment
+    </title>
+
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: #0f172a;
+            color: #f8fafc;
+            font-family: Arial, sans-serif;
+        }
+
+        header {
+            background: #1e293b;
+            padding: 16px 24px;
+            border-bottom: 1px solid #475569;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        h1 {
+            color: #fb923c;
+            font-size: 22px;
+            margin: 0;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        button, .back {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 6px;
+            background: #f97316;
+            color: #111827;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .back {
+            background: #334155;
+            color: white;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: wait;
+        }
+
+        .workspace {
+            max-width: 1500px;
+            margin: auto;
+            padding: 20px;
+            display: grid;
+            gap: 16px;
+        }
+
+        .panel {
+            background: #111827;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .panel-heading {
+            background: #1e293b;
+            padding: 12px 16px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .instructions {
+            padding: 16px;
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+
+        #editor {
+            height: 440px;
+            width: 100%;
+        }
+
+        textarea {
+            width: 100%;
+            display: block;
+            padding: 14px;
+            background: #0b1220;
+            color: white;
+            border: none;
+            resize: vertical;
+            font-family: Consolas, monospace;
+            font-size: 14px;
+        }
+
+        #programInput {
+            min-height: 80px;
+        }
+
+        #consoleOutput {
+            min-height: 160px;
+            padding: 14px;
+            margin: 0;
+            color: #86efac;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            font-family: Consolas, monospace;
+            font-size: 14px;
+        }
+
+        /* Teacher feedback styling */
+
+        .feedback-content {
+            padding: 20px 24px;
+        }
+
+        .feedback-grade {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .feedback-label {
+            font-size: 16px;
+            font-weight: bold;
+            color: #e2e8f0;
+        }
+
+        .feedback-score {
+            font-size: 28px;
+            font-weight: bold;
+            color: #86efac;
+        }
+
+        .feedback-comments-label {
+            font-size: 16px;
+            font-weight: bold;
+            color: #e2e8f0;
+            margin-bottom: 10px;
+        }
+
+        .feedback-comments {
+            font-size: 16px;
+            line-height: 1.6;
+            color: #e2e8f0;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+
+        .feedback-empty {
+            font-size: 14px;
+            color: #94a3b8;
+        }
+
+        .hint {
+            color: #94a3b8;
+            font-size: 12px;
+        }
+
+        .warning {
+            color: #ffb347;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1 th:text="${assignment.title}">
+        Java Assignment
+    </h1>
+
+    <div class="actions">
+        <button id="runButton"
+                type="button"
+                onclick="runJava()"
+                disabled>
+            ▶ Run
+        </button>
+
+        <button id="submitButton"
+                type="button"
+                onclick="submitAssignment()"
+                disabled>
+            Submit Assignment
+        </button>
+
+        <a class="back" th:href="@{/student}">
+            Dashboard
+        </a>
+    </div>
+</header>
+
+<main class="workspace">
+
+    <!-- Teacher feedback, shown after grading -->
+
+    <!-- Teacher Feedback -->
+    <section class="panel" th:if="${gradedSubmission != null}">
+
+        <div class="panel-heading">
+            Teacher Feedback
+        </div>
+
+        <div class="feedback-content">
+
+            <div class="feedback-grade">
+                <span class="feedback-label">Grade:</span>
+
+                <span class="feedback-score">
+                <span th:text="${gradedSubmission.grade}">100</span>
+                /
+                <span th:text="${assignment.maxPoints}">100</span>
+            </span>
+            </div>
+
+            <div class="feedback-comments-label">
+                Teacher Comments:
+            </div>
+
+            <div class="feedback-comments"
+                 th:if="${gradedSubmission.feedback != null
+                     and !#strings.isEmpty(gradedSubmission.feedback)}"
+                 th:text="${gradedSubmission.feedback}">
+                Great work! Your program produces the correct output,
+                and your code is organized well.
+            </div>
+
+            <div class="feedback-empty"
+                 th:if="${gradedSubmission.feedback == null
+                     or #strings.isEmpty(gradedSubmission.feedback)}">
+                Your teacher has not added written feedback.
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <section class="panel">
+        <div class="panel-heading">
+            Assignment Instructions
+        </div>
+
+        <div class="instructions"
+             th:text="${assignment.description}">
+            Assignment instructions
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-heading"
+             style="display:flex; justify-content:space-between;
+            align-items:center; gap:12px;">
+
+            <span>Main.java</span>
+
+            <span id="saveStatus"
+                  class="hint"
+                  role="status"
+                  aria-live="polite">
+        Loading draft...
+    </span>
+        </div>
+
+        <div id="editor"></div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-heading">Program Input</div>
+
+        <textarea id="programInput"
+                  placeholder="Enter Scanner input here, one line at a time."></textarea>
+    </section>
+
+    <section class="panel">
+        <div class="panel-heading">Console Output</div>
+
+        <pre id="consoleOutput">Click Run to execute your program.</pre>
+    </section>
+
+    <p class="hint">
+        Run your code to test it. Submit Assignment when you are ready.
+    </p>
+
+    <p class="warning">
+        Development only: Java execution is not yet isolated
+        for use by students.
+    </p>
+
+    <!-- Preserve the existing assignment submission endpoint. -->
+    <form id="submissionForm"
+          th:action="@{/assignment/{id}/submit(id=${assignment.id})}"
+          method="post">
+
+        <input type="hidden"
+               th:name="${_csrf.parameterName}"
+               th:value="${_csrf.token}">
+
+        <input type="hidden"
+               name="code"
+               id="submissionCode">
+    </form>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js"></script>
+
+<script th:inline="javascript">
+
+    const runUrl =
+        /*[[@{/api/student/java/run}]]*/
+        "/api/student/java/run";
+
+    const assignmentId =
+        /*[[${assignment.id}]]*/
+        0;
+
+    const draftBaseUrl =
+        /*[[@{/api/student/assignments}]]*/
+        "/api/student/assignments";
+
+    const draftUrl =
+        draftBaseUrl + "/" + assignmentId + "/draft";
+
+    const starterCode =
+        /*[[${assignment.starterCode}]]*/
+        "";
+
+    const defaultCode = [
+        "public class Main {",
+        "    public static void main(String[] args) {",
+        "        ",
+        "    }",
+        "}"
+    ].join("\n");
+
+    let editor = null;
+    let submitting = false;
+    let saveTimer = null;
+    let saving = false;
+    let savedCode = null;
+
+    const runButton =
+        document.getElementById("runButton");
+
+    const submitButton =
+        document.getElementById("submitButton");
+
+    const saveStatus =
+        document.getElementById("saveStatus");
+
+    function csrfHeaders() {
+
+        const token =
+            document.querySelector('meta[name="_csrf"]').content;
+
+        const header =
+            document.querySelector('meta[name="_csrf_header"]').content;
+
+        return {
+            "Content-Type": "application/json",
+            [header]: token
+        };
+    }
+
+    function setSaveStatus(message) {
+        saveStatus.textContent = message;
+    }
+
+    // Load a saved draft before creating Monaco.
+    // This prevents starter code from overwriting saved work.
+
+    async function loadDraft() {
+
+        const response = await fetch(draftUrl, {
+            method: "GET",
+            cache: "no-store"
+        });
+
+        if (!response.ok) {
+            throw new Error(
+                "Draft loading failed: HTTP " + response.status);
+        }
+
+        return await response.json();
+    }
+
+    // Save one code snapshot at a time.
+    // Serializing saves prevents older requests from
+    // overwriting newer changes out of order.
+
+    async function saveDraft() {
+
+        if (!editor || saving) {
+            return;
+        }
+
+        clearTimeout(saveTimer);
+        saveTimer = null;
+
+        const code = editor.getValue();
+
+        if (code === savedCode) {
+            setSaveStatus("Saved");
+            return;
+        }
+
+        saving = true;
+        setSaveStatus("Saving...");
+
+        try {
+
+            const response = await fetch(draftUrl, {
+                method: "POST",
+                headers: csrfHeaders(),
+                body: JSON.stringify({ code })
+            });
+
+            if (!response.ok) {
+                throw new Error(
+                    "HTTP " + response.status);
+            }
+
+            savedCode = code;
+
+            if (editor.getValue() === savedCode) {
+                setSaveStatus("Saved");
+            } else {
+                setSaveStatus("Unsaved changes");
+
+                saveTimer = setTimeout(
+                    saveDraft, 300);
+            }
+
+        } catch (error) {
+
+            console.error("Draft save error:", error);
+            setSaveStatus("Save failed — retrying");
+
+            saveTimer = setTimeout(
+                saveDraft, 5000);
+
+        } finally {
+            saving = false;
+        }
+    }
+
+    function scheduleSave() {
+
+        clearTimeout(saveTimer);
+
+        setSaveStatus("Unsaved changes");
+
+        saveTimer = setTimeout(
+            saveDraft, 1500);
+    }
+
+    // Initialize Monaco after retrieving the draft.
+
+    require.config({
+        paths: {
+            vs: "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs"
+        }
+    });
+
+    require(
+        ["vs/editor/editor.main"],
+        async function () {
+
+            let initialCode;
+
+            try {
+
+                const draft = await loadDraft();
+
+                initialCode = draft.found
+                    ? draft.code
+                    : (starterCode || defaultCode);
+
+                savedCode = draft.found
+                    ? draft.code
+                    : null;
+
+            } catch (error) {
+
+                console.error("Draft load error:", error);
+
+                setSaveStatus(
+                    "Could not load draft — refresh to retry");
+
+                return;
+            }
+
+            editor = monaco.editor.create(
+                document.getElementById("editor"),
+                {
+                    value: initialCode,
+                    language: "java",
+                    theme: "vs-dark",
+                    automaticLayout: true,
+                    minimap: { enabled: false },
+                    fontSize: 15,
+                    tabSize: 4,
+                    insertSpaces: true,
+                    scrollBeyondLastLine: false
+                }
+            );
+
+            editor.onDidChangeModelContent(
+                scheduleSave);
+
+            runButton.disabled = false;
+            submitButton.disabled = false;
+
+            setSaveStatus(
+                savedCode !== null
+                    ? "Draft restored"
+                    : "Ready — autosave enabled"
+            );
+        }
+    );
+
+    // Run Java using the existing runner.
+
+    async function runJava() {
+
+        const output =
+            document.getElementById("consoleOutput");
+
+        if (!editor) {
+            output.textContent = "Editor is still loading.";
+            return;
+        }
+
+        runButton.disabled = true;
+        runButton.textContent = "Running...";
+        output.textContent = "Compiling and running...";
+
+        try {
+
+            const response = await fetch(runUrl, {
+                method: "POST",
+                headers: csrfHeaders(),
+                body: JSON.stringify({
+                    code: editor.getValue(),
+                    input: document.getElementById(
+                        "programInput"
+                    ).value
+                })
+            });
+
+            const result = await response.json();
+
+            output.textContent =
+                [result.output, result.error]
+                    .filter(Boolean)
+                    .join("\n") || "No output.";
+
+            if (!response.ok) {
+                output.textContent =
+                    result.error ||
+                    "Request failed: HTTP " + response.status;
+            }
+
+        } catch (error) {
+
+            console.error("Java run error:", error);
+
+            output.textContent =
+                "Could not contact Java runner: " +
+                error.message;
+
+        } finally {
+
+            runButton.disabled = false;
+            runButton.textContent = "▶ Run";
+        }
+    }
+
+    // Submit current Monaco code through the
+    // existing assignment submission form.
+
+    function submitAssignment() {
+
+        if (!editor || submitting) {
+            return;
+        }
+
+        const code = editor.getValue();
+
+        if (!code.trim()) {
+            alert("Please write some Java code before submitting.");
+            return;
+        }
+
+        if (!confirm(
+            "Submit your current Java code for this assignment?"
+        )) {
+            return;
+        }
+
+        document.getElementById("submissionCode").value =
+            code;
+
+        submitting = true;
+        submitButton.disabled = true;
+        submitButton.textContent = "Submitting...";
+
+        document.getElementById("submissionForm").submit();
+    }
+
+    // Warn if the student tries to leave while
+    // the latest changes have not been saved.
+
+    window.addEventListener("beforeunload", function (event) {
+
+        if (editor &&
+            editor.getValue() !== savedCode) {
+
+            event.preventDefault();
+            event.returnValue = "";
+        }
+    });
+
+</script>
+
+</body>
+</html>

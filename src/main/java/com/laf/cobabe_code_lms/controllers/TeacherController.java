@@ -11,4 +11,11 @@ public class TeacherController {
         return "teacher";
     }
 
+
+    @GetMapping("/runner-test")
+    public String runnerTestPage() {
+        return "runner-test";
+    }
+
+
 }

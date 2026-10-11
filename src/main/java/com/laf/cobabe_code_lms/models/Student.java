@@ -24,7 +24,7 @@ public class Student {
 
     public boolean mustChangePassword = true;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "class_period_id")
     public ClassPeriod classPeriod;
 

@@ -43,6 +43,7 @@ public class GradebookController {
 
     public record GradeCell(
             Long assignmentId,
+            Long submissionId,
             String status,
             Integer score,
             int maxPoints
@@ -195,6 +196,7 @@ public class GradebookController {
 
                 cells.add(new GradeCell(
                         assignment.id,
+                        newest == null ? null : newest.id,
                         status,
                         score,
                         assignment.maxPoints));

@@ -14,14 +14,16 @@ public class JavaExecutionService {
 
     private final JavaRunnerManager runnerManager;
     private final boolean runnerEnabled;
+    private final JavaRunnerConnection runnerConnection;
 
     public JavaExecutionService(
             JavaRunnerManager runnerManager,
             @Value("${cobabe.runner.enabled:false}")
-            boolean runnerEnabled) {
+            boolean runnerEnabled, JavaRunnerConnection runnerConnection) {
 
         this.runnerManager = runnerManager;
         this.runnerEnabled = runnerEnabled;
+        this.runnerConnection = runnerConnection;
     }
 
     public record ExecutionResult(
@@ -83,4 +85,48 @@ public class JavaExecutionService {
                 )
         );
     }
+
+    public CompletableFuture<ExecutionResult> testRunnerConnection(
+            String sourceCode,
+            String programInput
+    ) {
+        return runnerManager.submit(() -> {
+
+            String response = runnerConnection.testJsonRequest(
+                    sourceCode,
+                    programInput
+            );
+
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper mapper =
+                        new com.fasterxml.jackson.databind.ObjectMapper();
+
+                com.fasterxml.jackson.databind.JsonNode result =
+                        mapper.readTree(response);
+
+                boolean success =
+                        result.path("success").asBoolean(false);
+
+                String output =
+                        result.path("output").asText("");
+
+                String error =
+                        result.path("error").asText("");
+
+                return new ExecutionResult(
+                        success,
+                        output,
+                        error
+                );
+
+            } catch (Exception e) {
+                return new ExecutionResult(
+                        false,
+                        "",
+                        "Runner communication error: " + response
+                );
+            }
+        });
+    }
+
 }

@@ -1,1 +1,324 @@
-<!doctype html><html xmlns:th="http://www.thymeleaf.org"><head><meta charset="utf-8"><title>Review submission</title><link rel="stylesheet" href="/style.css"></head><body><header><a href="/dashboard">← Gradebook</a></header><main><h1 th:text="${submission.student.name} + ' — ' + ${submission.assignment.title}"></h1><form id="runform" method="post" action="/api/run"><input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><textarea id="code" name="code" rows="18" th:text="${submission.code}"></textarea><label>Console input</label><textarea name="stdin" rows="3"></textarea><button>▶ Run student's code</button></form><pre id="output"></pre><h2>Grade</h2><form th:action="@{/teacher/submission/{id}/grade(id=${submission.id})}" method="post"><input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><input name="grade" type="number" min="0" max="100" required th:value="${submission.grade}" placeholder="Score / 100"><textarea name="feedback" maxlength="4000" th:text="${submission.feedback}" placeholder="Feedback"></textarea><button>Save grade</button></form></main><script>document.getElementById('runform').addEventListener('submit',async e=>{e.preventDefault();let o=document.getElementById('output');o.textContent='Running...';try{let r=await fetch('/api/run',{method:'POST',body:new FormData(e.target)});o.textContent=await r.text()}catch(e){o.textContent='Request failed'}})</script></body></html>
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Review Submission | Cobabe Code LMS</title>
+
+    <meta name="_csrf" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:content="${_csrf.headerName}">
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #0f172a;
+            color: #f8fafc;
+            font-family: Arial, sans-serif;
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 20px;
+        }
+
+        h1, h2 {
+            color: #fb923c;
+        }
+
+        .card {
+            background: #1e293b;
+            border: 1px solid #475569;
+            border-radius: 10px;
+            padding: 22px;
+            margin-bottom: 20px;
+        }
+
+        .muted {
+            color: #94a3b8;
+        }
+
+        textarea, input {
+            width: 100%;
+            padding: 12px;
+            background: #0f172a;
+            color: white;
+            border: 1px solid #475569;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        textarea {
+            resize: vertical;
+        }
+
+        #code {
+            min-height: 350px;
+            font-family: Consolas, monospace;
+            line-height: 1.5;
+            tab-size: 4;
+        }
+
+        #output {
+            background: #020617;
+            color: #86efac;
+            border: 1px solid #334155;
+            padding: 16px;
+            min-height: 120px;
+            border-radius: 6px;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            font-family: Consolas, monospace;
+        }
+
+        .button {
+            display: inline-block;
+            background: #334155;
+            color: white;
+            padding: 11px 18px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .primary {
+            background: #f97316;
+            color: #111827;
+            font-weight: bold;
+        }
+
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        label {
+            display: block;
+            margin: 14px 0 7px;
+            font-weight: bold;
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+            align-items: center;
+        }
+
+        /* Assignment instructions */
+
+        .assignment-instructions {
+            background: #0f172a;
+            border-left: 4px solid #f97316;
+            border-radius: 6px;
+            padding: 18px 20px;
+            margin-top: 14px;
+            color: #e2e8f0;
+            font-size: 15px;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+
+        .assignment-instructions-empty {
+            color: #94a3b8;
+            font-style: italic;
+        }
+
+    </style>
+</head>
+
+<body>
+<main>
+
+    <a class="button"
+       th:href="@{/teacher/gradebook}">
+        ← Back to Gradebook
+    </a>
+
+    <h1>Review Submission</h1>
+
+    <p>
+        <strong>Student:</strong>
+        <span th:text="${submission.student.name}"></span>
+    </p>
+
+    <p>
+        <strong>Assignment:</strong>
+        <span th:text="${submission.assignment.title}"></span>
+    </p>
+
+    <p>
+        <strong>Maximum Points:</strong>
+        <span th:text="${submission.assignment.maxPoints}"></span>
+    </p>
+
+    <!-- Assignment Instructions -->
+    <div class="card">
+
+        <h2>Assignment Instructions</h2>
+
+        <div class="assignment-instructions"
+             th:if="${submission.assignment.description != null
+                 and !#strings.isEmpty(submission.assignment.description)}"
+             th:text="${submission.assignment.description}">
+            Assignment instructions will appear here.
+        </div>
+
+        <p class="assignment-instructions-empty"
+           th:if="${submission.assignment.description == null
+               or #strings.isEmpty(submission.assignment.description)}">
+            No instructions were provided for this assignment.
+        </p>
+
+    </div>
+
+    <div class="card">
+        <h2>Submitted Java Code</h2>
+
+        <p class="muted">
+            This is the student's submitted code.
+            It is read-only.
+        </p>
+
+        <textarea id="code"
+                  readonly
+                  spellcheck="false"
+                  th:text="${submission.code}"></textarea>
+
+        <h2>Run Student Code</h2>
+
+        <label for="stdin">Console Input (optional)</label>
+
+        <textarea id="stdin"
+                  rows="3"
+                  placeholder="Input for Scanner, if needed"></textarea>
+
+        <div class="actions">
+            <button type="button"
+                    id="runButton"
+                    class="button primary"
+                    onclick="runStudentCode()">
+                ▶ Run Java
+            </button>
+        </div>
+
+        <h2>Console Output</h2>
+
+        <pre id="output">Click Run Java to test the student's program.</pre>
+    </div>
+
+    <div class="card">
+        <h2>Grade Assignment</h2>
+
+        <p th:if="${error}"
+           th:text="${error}"
+           style="color:#fca5a5;"></p>
+
+        <form th:action="@{/teacher/submission/{id}/grade(id=${submission.id})}"
+              method="post">
+
+            <input type="hidden"
+                   th:name="${_csrf.parameterName}"
+                   th:value="${_csrf.token}">
+
+            <label for="grade">Score</label>
+
+            <input id="grade"
+                   name="grade"
+                   type="number"
+                   min="0"
+                   th:max="${submission.assignment.maxPoints}"
+                   th:value="${submission.grade}"
+                   required>
+
+            <label for="feedback">Teacher Feedback</label>
+
+            <textarea id="feedback"
+                      name="feedback"
+                      rows="6"
+                      maxlength="4000"
+                      th:text="${submission.feedback}"
+                      placeholder="Write feedback for the student..."></textarea>
+
+            <div class="actions">
+                <button type="submit"
+                        class="button primary">
+                    Save Grade &amp; Feedback
+                </button>
+            </div>
+
+        </form>
+    </div>
+
+</main>
+
+<script>
+    async function runStudentCode() {
+
+        const button = document.getElementById("runButton");
+        const output = document.getElementById("output");
+
+        const code = document.getElementById("code").value;
+        const input = document.getElementById("stdin").value;
+
+        const csrfToken = document
+            .querySelector('meta[name="_csrf"]').content;
+
+        const csrfHeader = document
+            .querySelector('meta[name="_csrf_header"]').content;
+
+        button.disabled = true;
+        button.textContent = "Running...";
+
+        output.textContent = "Compiling and running Java code...";
+
+        try {
+            const response = await fetch(
+                "/teacher/submission/run",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        [csrfHeader]: csrfToken
+                    },
+                    body: JSON.stringify({
+                        code: code,
+                        input: input
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                output.textContent =
+                    "Runner request failed. HTTP " + response.status;
+                return;
+            }
+
+            const result = await response.json();
+            if (result.success) {
+                output.textContent = result.output ||
+                    "Program finished with no console output.";
+            } else {
+                output.textContent = result.error ||
+                    "Java execution failed. Check that the Java Runner is running.";
+            }
+        } catch (error) {
+            output.textContent =
+                "Unable to contact Java Runner: " + error.message;
+
+        } finally {
+            button.disabled = false;
+            button.textContent = "▶ Run Java";
+        }
+    }
+</script>
+
+</body>
+</html>

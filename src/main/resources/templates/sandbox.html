@@ -13,7 +13,9 @@
     <title>Java Sandbox | Cobabe Code LMS</title>
 
     <style>
-        * { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+        }
 
         body {
             margin: 0;
@@ -98,9 +100,11 @@
             display: flex;
             gap: 10px;
             align-items: center;
+            flex-wrap: wrap;
         }
 
-        button, .back {
+        button,
+        .back {
             background: #f97316;
             color: #111827;
             border: none;
@@ -126,6 +130,17 @@
             font-size: 12px;
             margin: 0;
         }
+
+        #saveStatus {
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
+        .dev-warning {
+            color: #ffb347;
+            font-size: 13px;
+            margin: 0;
+        }
     </style>
 </head>
 
@@ -135,13 +150,25 @@
     <h1>Cobabe Code — Java Sandbox</h1>
 
     <div class="actions">
-        <button id="runButton" onclick="runJava()">
+
+        <p class="dev-warning">
+            Development mode: Java execution is not sandboxed.
+        </p>
+
+        <span id="saveStatus">
+            Loading editor...
+        </span>
+
+        <button id="runButton"
+                onclick="runJava()"
+                disabled>
             ▶ Run
         </button>
 
         <a class="back" th:href="@{/student}">
             Dashboard
         </a>
+
     </div>
 </header>
 
@@ -154,17 +181,21 @@
 
     <section class="panel">
         <div class="panel-heading">Program Input</div>
-        <textarea id="programInput"
-                  placeholder="Enter input for Scanner here, one line at a time."></textarea>
+
+        <textarea
+                id="programInput"
+                placeholder="Enter input for Scanner here, one line at a time."></textarea>
     </section>
 
     <section class="panel">
         <div class="panel-heading">Console Output</div>
+
         <pre id="consoleOutput">Click Run to execute your program.</pre>
     </section>
 
     <p class="hint">
         Java Sandbox — practice code is not submitted for grading.
+        Your Java code is automatically saved.
     </p>
 
 </main>
@@ -172,7 +203,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js"></script>
 
 <script th:inline="javascript">
-    const runUrl = /*[[@{/api/student/java/run}]]*/ "/api/student/java/run";
+
+    const runUrl =
+        /*[[@{/api/student/java/run}]]*/
+        "/api/student/java/run";
 
     const starterCode = [
         "public class Main {",
@@ -182,7 +216,190 @@
         "}"
     ].join("\n");
 
-    let editor;
+    let editor = null;
+
+    const saveStatus =
+        document.getElementById("saveStatus");
+
+    const runButton =
+        document.getElementById("runButton");
+
+    let saveTimer = null;
+    let loadingCode = true;
+    let loadSucceeded = false;
+    let lastSavedCode = null;
+    let saveInProgress = false;
+
+    function csrfHeaders() {
+        const csrfToken =
+            document.querySelector('meta[name="_csrf"]').content;
+
+        const csrfHeader =
+            document.querySelector('meta[name="_csrf_header"]').content;
+
+        return {
+            "Content-Type": "application/json",
+            [csrfHeader]: csrfToken
+        };
+    }
+
+    // ---------------------------------------
+    // LOAD SAVED SANDBOX CODE
+    // ---------------------------------------
+
+    async function loadSandboxCode() {
+
+        saveStatus.textContent = "Loading saved code...";
+
+        try {
+            const response = await fetch(
+                "/api/student/sandbox/load",
+                { cache: "no-store" }
+            );
+
+            if (!response.ok) {
+                throw new Error(
+                    "Load failed: HTTP " + response.status
+                );
+            }
+
+            const data = await response.json();
+
+            if (data.found) {
+                editor.setValue(data.code);
+            }
+
+            lastSavedCode = editor.getValue();
+            loadSucceeded = true;
+
+            saveStatus.textContent =
+                data.found ? "Saved code loaded" : "Ready";
+
+        } catch (error) {
+
+            console.error(
+                "Sandbox load error:",
+                error
+            );
+
+            saveStatus.textContent =
+                "Could not load saved code";
+
+            // Do not allow automatic saving if loading
+            // failed, because that could overwrite
+            // existing code in the database.
+            loadSucceeded = false;
+
+        } finally {
+            loadingCode = false;
+        }
+    }
+
+    // ---------------------------------------
+    // SAVE SANDBOX CODE
+    // ---------------------------------------
+
+    async function saveSandboxCode() {
+
+        if (
+            loadingCode ||
+            !loadSucceeded ||
+            saveInProgress ||
+            !editor
+        ) {
+            return;
+        }
+
+        const code = editor.getValue();
+
+        if (code === lastSavedCode) {
+            saveStatus.textContent = "Saved";
+            return;
+        }
+
+        saveInProgress = true;
+        saveStatus.textContent = "Saving...";
+
+        try {
+
+            const response = await fetch(
+                "/api/student/sandbox/save",
+                {
+                    method: "POST",
+                    headers: csrfHeaders(),
+                    body: JSON.stringify({ code })
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(
+                    "Save failed: HTTP " + response.status
+                );
+            }
+
+            lastSavedCode = code;
+
+            saveStatus.textContent =
+                editor.getValue() === code
+                    ? "Saved"
+                    : "Unsaved changes";
+
+        } catch (error) {
+
+            console.error(
+                "Sandbox save error:",
+                error
+            );
+
+            saveStatus.textContent = "Save failed";
+
+        } finally {
+
+            saveInProgress = false;
+
+            // If the student continued typing while
+            // the request was in progress, save again.
+            if (
+                editor &&
+                editor.getValue() !== lastSavedCode
+            ) {
+                scheduleSandboxSave();
+            }
+        }
+    }
+
+    // ---------------------------------------
+    // AUTOSAVE TIMER
+    // ---------------------------------------
+
+    function scheduleSandboxSave() {
+
+        if (
+            loadingCode ||
+            !loadSucceeded ||
+            !editor
+        ) {
+            return;
+        }
+
+        clearTimeout(saveTimer);
+
+        if (editor.getValue() === lastSavedCode) {
+            saveStatus.textContent = "Saved";
+            return;
+        }
+
+        saveStatus.textContent = "Unsaved changes";
+
+        saveTimer = setTimeout(
+            saveSandboxCode,
+            1500
+        );
+    }
+
+    // ---------------------------------------
+    // INITIALIZE MONACO
+    // ---------------------------------------
 
     require.config({
         paths: {
@@ -190,54 +407,73 @@
         }
     });
 
-    require(["vs/editor/editor.main"], function () {
-        editor = monaco.editor.create(
-            document.getElementById("editor"),
-            {
-                value: starterCode,
-                language: "java",
-                theme: "vs-dark",
-                automaticLayout: true,
-                minimap: { enabled: false },
-                fontSize: 15,
-                tabSize: 4,
-                insertSpaces: true,
-                scrollBeyondLastLine: false
-            }
-        );
-    });
+    require(
+        ["vs/editor/editor.main"],
+        async function () {
+
+            editor = monaco.editor.create(
+                document.getElementById("editor"),
+                {
+                    value: starterCode,
+                    language: "java",
+                    theme: "vs-dark",
+                    automaticLayout: true,
+                    minimap: { enabled: false },
+                    fontSize: 15,
+                    tabSize: 4,
+                    insertSpaces: true,
+                    scrollBeyondLastLine: false
+                }
+            );
+
+            // Monaco now exists.
+            // Load saved code before enabling autosave.
+            await loadSandboxCode();
+
+            editor.onDidChangeModelContent(
+                scheduleSandboxSave
+            );
+
+            runButton.disabled = false;
+        }
+    );
+
+    // ---------------------------------------
+    // RUN JAVA
+    // ---------------------------------------
 
     async function runJava() {
-        const output = document.getElementById("consoleOutput");
-        const button = document.getElementById("runButton");
+
+        const output =
+            document.getElementById("consoleOutput");
 
         if (!editor) {
-            output.textContent = "Editor is still loading.";
+            output.textContent =
+                "Editor is still loading.";
             return;
         }
 
-        button.disabled = true;
-        button.textContent = "Running...";
-        output.textContent = "Sending code to server...";
+        runButton.disabled = true;
+        runButton.textContent = "Running...";
+
+        output.textContent =
+            "Sending code to server...";
 
         try {
-            const csrfToken =
-                document.querySelector('meta[name="_csrf"]').content;
 
-            const csrfHeader =
-                document.querySelector('meta[name="_csrf_header"]').content;
-
-            const response = await fetch(runUrl, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    [csrfHeader]: csrfToken
-                },
-                body: JSON.stringify({
-                    code: editor.getValue(),
-                    input: document.getElementById("programInput").value
-                })
-            });
+            const response = await fetch(
+                runUrl,
+                {
+                    method: "POST",
+                    headers: csrfHeaders(),
+                    body: JSON.stringify({
+                        code: editor.getValue(),
+                        input: document.getElementById(
+                            "programInput"
+                        ).value
+                    })
+                }
+            );
 
             const result = await response.json();
 
@@ -248,17 +484,28 @@
 
             if (!response.ok) {
                 output.textContent =
-                    result.error || "Request failed: " + response.status;
+                    result.error ||
+                    "Request failed: " + response.status;
             }
 
         } catch (error) {
+
+            console.error(
+                "Java execution error:",
+                error
+            );
+
             output.textContent =
-                "Could not contact Java runner: " + error.message;
+                "Could not contact Java runner: " +
+                error.message;
+
         } finally {
-            button.disabled = false;
-            button.textContent = "▶ Run";
+
+            runButton.disabled = false;
+            runButton.textContent = "▶ Run";
         }
     }
+
 </script>
 
 </body>

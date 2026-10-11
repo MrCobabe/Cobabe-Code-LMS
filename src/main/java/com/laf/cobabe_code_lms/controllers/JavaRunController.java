@@ -39,8 +39,10 @@ public class JavaRunController {
             );
         }
 
-        return executionService
-                .runJava(request.code(), request.input())
+        return executionService.testRunnerConnection(
+                        request.code(),
+                        request.input()
+                )
                 .handle((result, exception) -> {
 
                     if (exception != null) {
