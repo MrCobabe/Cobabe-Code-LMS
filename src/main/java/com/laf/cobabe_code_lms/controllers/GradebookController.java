@@ -92,8 +92,15 @@ public class GradebookController {
 
         classStudents.sort(
                 Comparator.comparing(
-                        s -> s.name,
-                        String.CASE_INSENSITIVE_ORDER));
+                        s -> s.name == null
+                                ? ""
+                                : s.name
+                                .replace('\u00A0', ' ')
+                                .replace("\uFEFF", "")
+                                .strip(),
+                        String.CASE_INSENSITIVE_ORDER
+                )
+        );
 
         classAssignments.sort(
                 Comparator.comparing(a -> a.id));

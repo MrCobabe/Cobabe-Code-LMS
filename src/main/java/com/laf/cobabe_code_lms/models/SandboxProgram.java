@@ -5,18 +5,18 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(
-        name = "sandbox_programs",
-        uniqueConstraints = @UniqueConstraint(columnNames = "student_id")
-)
+@Table(name = "sandbox_programs")
 public class SandboxProgram {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "student_id", nullable = false, unique = true)
+    @Column(name = "student_id", nullable = false)
     private String studentId;
+
+    @Column(name = "name", length = 120)
+    private String name = "My Sandbox";
 
     @Lob
     @Column(nullable = false)
@@ -30,6 +30,18 @@ public class SandboxProgram {
     public SandboxProgram(String studentId, String code) {
         this.studentId = studentId;
         this.code = code;
+        this.name = "My Sandbox";
+        this.lastSaved = LocalDateTime.now();
+    }
+
+    public SandboxProgram(
+            String studentId,
+            String name,
+            String code) {
+
+        this.studentId = studentId;
+        this.name = name;
+        this.code = code;
         this.lastSaved = LocalDateTime.now();
     }
 
@@ -39,6 +51,15 @@ public class SandboxProgram {
 
     public String getStudentId() {
         return studentId;
+    }
+
+    public String getName() {
+        return name == null ? "My Sandbox" : name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+        this.lastSaved = LocalDateTime.now();
     }
 
     public String getCode() {

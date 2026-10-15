@@ -11,7 +11,10 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.RejectedExecutionException;
 
 @RestController
-@RequestMapping("/api/student/java")
+@RequestMapping({
+        "/api/student/java",
+        "/teacher/api/java"
+})
 public class JavaRunController {
 
     private final JavaExecutionService executionService;

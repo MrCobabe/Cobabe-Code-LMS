@@ -4,6 +4,9 @@ package com.laf.cobabe_code_lms.controllers;
 import com.laf.cobabe_code_lms.models.Student;
 import com.laf.cobabe_code_lms.repositories.Students;
 import com.laf.cobabe_code_lms.repositories.ClassPeriods;
+import com.laf.cobabe_code_lms.repositories.Submissions;
+import com.laf.cobabe_code_lms.repositories.AssignmentDrafts;
+import com.laf.cobabe_code_lms.repositories.SandboxPrograms;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
@@ -11,7 +14,6 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-import com.laf.cobabe_code_lms.repositories.Submissions;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
@@ -26,16 +28,25 @@ public class StudentManagementController {
     private final ClassPeriods classes;
     private final PasswordEncoder encoder;
     private final SecureRandom random = new SecureRandom();
+
     private final Submissions submissions;
+    private final AssignmentDrafts drafts;
+    private final SandboxPrograms sandboxes;
 
     public StudentManagementController(
             Students students,
             ClassPeriods classes,
-            PasswordEncoder encoder, Submissions submissions) {
+            PasswordEncoder encoder,
+            Submissions submissions,
+            AssignmentDrafts drafts,
+            SandboxPrograms sandboxes) {
+
         this.students = students;
         this.classes = classes;
         this.encoder = encoder;
         this.submissions = submissions;
+        this.drafts = drafts;
+        this.sandboxes = sandboxes;
     }
 
     @GetMapping
@@ -79,6 +90,7 @@ public class StudentManagementController {
         }
 
         var classPeriod = classes.findById(classId).orElse(null);
+
         if (classPeriod == null) {
             redirect.addFlashAttribute(
                     "error", "Please select a valid class.");
@@ -97,9 +109,10 @@ public class StudentManagementController {
 
         students.save(student);
 
-        redirect.addFlashAttribute("success",
-                "Student account created.");
-        redirect.addFlashAttribute("credentials",
+        redirect.addFlashAttribute(
+                "success", "Student account created.");
+        redirect.addFlashAttribute(
+                "credentials",
                 List.of(username + " : " + password));
 
         return "redirect:/teacher/students";
@@ -126,6 +139,7 @@ public class StudentManagementController {
 
         redirect.addFlashAttribute(
                 "success", "Student moved successfully.");
+
         return "redirect:/teacher/students";
     }
 
@@ -143,13 +157,15 @@ public class StudentManagementController {
         }
 
         String password = newPassword();
+
         student.passwordHash = encoder.encode(password);
         student.mustChangePassword = true;
         students.save(student);
 
         redirect.addFlashAttribute(
                 "success", "Password reset.");
-        redirect.addFlashAttribute("credentials",
+        redirect.addFlashAttribute(
+                "credentials",
                 List.of(student.username + " : " + password));
 
         return "redirect:/teacher/students";
@@ -162,6 +178,7 @@ public class StudentManagementController {
             RedirectAttributes redirect) throws Exception {
 
         var classPeriod = classes.findById(classId).orElse(null);
+
         if (classPeriod == null) {
             redirect.addFlashAttribute(
                     "error", "Invalid class period.");
@@ -180,7 +197,6 @@ public class StudentManagementController {
         List<String> credentials = new ArrayList<>();
         int imported = 0;
 
-        // Simple CSV: name,username (no quoted commas).
         String[] lines = csv.split("\\R");
 
         for (int i = 0; i < lines.length; i++) {
@@ -217,18 +233,18 @@ public class StudentManagementController {
             );
 
             students.save(student);
+
             credentials.add(username + " : " + password);
             imported++;
         }
 
-        redirect.addFlashAttribute("success",
-                imported + " students imported.");
+        redirect.addFlashAttribute(
+                "success", imported + " students imported.");
         redirect.addFlashAttribute(
                 "credentials", credentials);
 
         return "redirect:/teacher/students";
     }
-
 
     private String newPassword() {
 
@@ -244,8 +260,9 @@ public class StudentManagementController {
                 "tiger", "pizza", "robot", "panda",
                 "apple", "frog", "dragon", "turtle",
                 "monkey", "cookie", "rocket", "penguin",
-                "banana", "shark", "potato", "dolphin", "aura", "six7",
-                "bluey", "fish", "grannies", "rock"
+                "banana", "shark", "potato", "dolphin",
+                "aura", "six7", "bluey", "fish",
+                "grannies", "rock"
         };
 
         String first = firstWords[
@@ -260,8 +277,6 @@ public class StudentManagementController {
 
         return first + second + number;
     }
-
-
 
     @PostMapping("/{id}/delete")
     @Transactional
@@ -284,22 +299,37 @@ public class StudentManagementController {
         }
 
         String studentName = student.name;
+        String username = student.username;
 
-        // Delete submissions, grades, and feedback first.
+        // Delete submitted assignments and grades.
         long deletedSubmissions =
                 submissions.deleteByStudentId(id);
 
-        // Then delete the student account.
+        // Delete saved assignment drafts.
+        long deletedDrafts =
+                drafts.deleteByStudent_Id(id);
+
+        // Sandbox programs use username, not student UUID.
+        long deletedSandboxes =
+                sandboxes.deleteByStudentId(username);
+
+        // Flush dependent record deletions before deleting student.
+        submissions.flush();
+        drafts.flush();
+        sandboxes.flush();
+
+        // Finally delete the student account.
         students.delete(student);
+        students.flush();
 
         redirect.addFlashAttribute(
                 "success",
                 studentName + " was deleted successfully. " +
-                        deletedSubmissions + " submissions removed."
+                        deletedSubmissions + " submissions, " +
+                        deletedDrafts + " drafts, and " +
+                        deletedSandboxes + " sandbox programs removed."
         );
 
         return "redirect:/teacher/students";
     }
-
-
 }

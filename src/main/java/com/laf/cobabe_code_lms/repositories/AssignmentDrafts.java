@@ -1,3 +1,4 @@
+
 package com.laf.cobabe_code_lms.repositories;
 
 import com.laf.cobabe_code_lms.models.AssignmentDraft;
@@ -11,4 +12,6 @@ public interface AssignmentDrafts
     Optional<AssignmentDraft> findByStudent_IdAndAssignment_Id(
             String studentId,
             Long assignmentId);
+
+    long deleteByStudent_Id(String studentId);
 }

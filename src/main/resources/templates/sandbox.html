@@ -9,6 +9,7 @@
     <meta name="_csrf" th:content="${_csrf.token}">
     <meta name="_csrf_header"
           th:content="${_csrf.headerName}">
+    <meta name="sandbox-id" th:content="${sandboxId}">
 
     <title>Java Sandbox | Cobabe Code LMS</title>
 
@@ -147,7 +148,10 @@
 <body>
 
 <header>
-    <h1>Cobabe Code — Java Sandbox</h1>
+    <div>
+        <h1 id="sandboxTitle">Java Sandbox</h1>
+        <p class="hint">Practice Java programming</p>
+    </div>
 
     <div class="actions">
 
@@ -165,7 +169,29 @@
             ▶ Run
         </button>
 
-        <a class="back" th:href="@{/student}">
+        <!-- Teacher navigation -->
+        <a class="back"
+           th:if="${teacherMode == true}"
+           th:href="@{/teacher/sandboxes}">
+            My Sandboxes
+        </a>
+
+        <a class="back"
+           th:if="${teacherMode == true}"
+           th:href="@{/teacher}">
+            Dashboard
+        </a>
+
+        <!-- Student navigation -->
+        <a class="back"
+           th:unless="${teacherMode == true}"
+           th:href="@{/student/sandboxes}">
+            My Sandboxes
+        </a>
+
+        <a class="back"
+           th:unless="${teacherMode == true}"
+           th:href="@{/student}">
             Dashboard
         </a>
 
@@ -204,9 +230,19 @@
 
 <script th:inline="javascript">
 
-    const runUrl =
-        /*[[@{/api/student/java/run}]]*/
-        "/api/student/java/run";
+    // ---------------------------------------
+    // TEACHER / STUDENT CONFIGURATION
+    // ---------------------------------------
+
+    const teacherMode = /*[[${teacherMode == true}]]*/ false;
+
+    const runUrl = teacherMode
+        ? /*[[@{/teacher/api/java/run}]]*/ "/teacher/api/java/run"
+        : /*[[@{/api/student/java/run}]]*/ "/api/student/java/run";
+
+    const sandboxApiBase = teacherMode
+        ? /*[[@{/teacher/api/sandbox}]]*/ "/teacher/api/sandbox"
+        : /*[[@{/api/student/sandbox}]]*/ "/api/student/sandbox";
 
     const starterCode = [
         "public class Main {",
@@ -224,18 +260,30 @@
     const runButton =
         document.getElementById("runButton");
 
+    const sandboxId = document.querySelector(
+        'meta[name="sandbox-id"]'
+    )?.content;
+
     let saveTimer = null;
     let loadingCode = true;
     let loadSucceeded = false;
     let lastSavedCode = null;
     let saveInProgress = false;
 
+    // ---------------------------------------
+    // CSRF HEADERS
+    // ---------------------------------------
+
     function csrfHeaders() {
         const csrfToken =
-            document.querySelector('meta[name="_csrf"]').content;
+            document.querySelector(
+                'meta[name="_csrf"]'
+            ).content;
 
         const csrfHeader =
-            document.querySelector('meta[name="_csrf_header"]').content;
+            document.querySelector(
+                'meta[name="_csrf_header"]'
+            ).content;
 
         return {
             "Content-Type": "application/json",
@@ -252,8 +300,14 @@
         saveStatus.textContent = "Loading saved code...";
 
         try {
+            if (!sandboxId || !/^\d+$/.test(sandboxId)) {
+                throw new Error(
+                    "No valid sandbox ID was provided."
+                );
+            }
+
             const response = await fetch(
-                "/api/student/sandbox/load",
+                `${sandboxApiBase}/${sandboxId}/load`,
                 { cache: "no-store" }
             );
 
@@ -265,15 +319,19 @@
 
             const data = await response.json();
 
-            if (data.found) {
-                editor.setValue(data.code);
+            if (!data.found) {
+                throw new Error("Sandbox not found.");
             }
+
+            document.getElementById("sandboxTitle")
+                .textContent = data.name;
+
+            editor.setValue(data.code);
 
             lastSavedCode = editor.getValue();
             loadSucceeded = true;
 
-            saveStatus.textContent =
-                data.found ? "Saved code loaded" : "Ready";
+            saveStatus.textContent = "Saved code loaded";
 
         } catch (error) {
 
@@ -283,11 +341,8 @@
             );
 
             saveStatus.textContent =
-                "Could not load saved code";
+                "Could not load sandbox — saving disabled";
 
-            // Do not allow automatic saving if loading
-            // failed, because that could overwrite
-            // existing code in the database.
             loadSucceeded = false;
 
         } finally {
@@ -323,7 +378,7 @@
         try {
 
             const response = await fetch(
-                "/api/student/sandbox/save",
+                `${sandboxApiBase}/${sandboxId}/save`,
                 {
                     method: "POST",
                     headers: csrfHeaders(),
@@ -351,16 +406,16 @@
                 error
             );
 
-            saveStatus.textContent = "Save failed";
+            saveStatus.textContent =
+                "Save failed: " + error.message;
 
         } finally {
 
             saveInProgress = false;
 
-            // If the student continued typing while
-            // the request was in progress, save again.
             if (
                 editor &&
+                loadSucceeded &&
                 editor.getValue() !== lastSavedCode
             ) {
                 scheduleSandboxSave();
@@ -398,7 +453,7 @@
     }
 
     // ---------------------------------------
-    // INITIALIZE MONACO
+    // INITIALIZE MONACO EDITOR
     // ---------------------------------------
 
     require.config({
@@ -426,8 +481,6 @@
                 }
             );
 
-            // Monaco now exists.
-            // Load saved code before enabling autosave.
             await loadSandboxCode();
 
             editor.onDidChangeModelContent(
@@ -439,7 +492,7 @@
     );
 
     // ---------------------------------------
-    // RUN JAVA
+    // RUN JAVA CODE
     // ---------------------------------------
 
     async function runJava() {
@@ -475,18 +528,32 @@
                 }
             );
 
+            if (!response.ok) {
+                let errorMessage =
+                    "Request failed: HTTP " + response.status;
+
+                try {
+                    const errorData = await response.json();
+
+                    errorMessage =
+                        errorData.error ||
+                        errorData.message ||
+                        errorMessage;
+
+                } catch (ignored) {
+                    // Response was not JSON.
+                }
+
+                output.textContent = errorMessage;
+                return;
+            }
+
             const result = await response.json();
 
             output.textContent =
                 [result.output, result.error]
                     .filter(Boolean)
                     .join("\n") || "No output.";
-
-            if (!response.ok) {
-                output.textContent =
-                    result.error ||
-                    "Request failed: " + response.status;
-            }
 
         } catch (error) {
 

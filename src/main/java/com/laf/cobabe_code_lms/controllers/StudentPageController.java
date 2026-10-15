@@ -5,6 +5,7 @@ import java.security.Principal;
 import java.util.List;
 
 import com.laf.cobabe_code_lms.models.Assignment;
+import com.laf.cobabe_code_lms.models.SandboxProgram;
 import com.laf.cobabe_code_lms.repositories.Assignments;
 import com.laf.cobabe_code_lms.models.Student;
 import com.laf.cobabe_code_lms.repositories.Students;
@@ -15,7 +16,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import com.laf.cobabe_code_lms.models.Submission;
 import com.laf.cobabe_code_lms.repositories.Submissions;
-
+import com.laf.cobabe_code_lms.repositories.SandboxPrograms;
+import org.springframework.web.bind.annotation.PathVariable;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,13 +25,15 @@ import java.util.Map;
 @Controller
 public class StudentPageController {
 
+    private final SandboxPrograms sandboxPrograms;
     private final Students students;
     private final Assignments assignments;
     private final Submissions submissions;
 
     public StudentPageController(
-            Students students,
+            SandboxPrograms sandboxPrograms, Students students,
             Assignments assignments, Submissions submissions) {
+        this.sandboxPrograms = sandboxPrograms;
 
         this.students = students;
         this.assignments = assignments;
@@ -112,10 +116,32 @@ public class StudentPageController {
         return "student";
     }
 
+
     @GetMapping("/student/sandbox")
-    public String sandbox() {
+    public String sandboxRedirect() {
+        return "redirect:/student/sandboxes";
+    }
+
+    @GetMapping("/student/sandbox/{id}")
+    public String openSandbox(
+            @PathVariable Long id,
+            Principal principal,
+            Model model) {
+
+        Student student = currentStudent(principal);
+
+        SandboxProgram program = sandboxPrograms
+                .findByIdAndStudentId(id, principal.getName())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Sandbox not found"
+                ));
+
+        model.addAttribute("sandboxId", program.getId());
+
         return "sandbox";
     }
+
 
     @GetMapping("/student/assignment/{id}")
     public String openAssignment(
@@ -174,4 +200,10 @@ public class StudentPageController {
                 new ResponseStatusException(
                         HttpStatus.FORBIDDEN));
     }
+
+    @GetMapping("/student/sandboxes")
+    public String sandboxList() {
+        return "sandboxes";
+    }
+
 }

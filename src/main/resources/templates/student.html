@@ -2,6 +2,10 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+
+    <meta name="_csrf" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:content="${_csrf.headerName}">
+
     <meta name="viewport"
           content="width=device-width, initial-scale=1">
     <title>Student Dashboard | Cobabe Code LMS</title>
@@ -10,7 +14,8 @@
         body {
             background: #0f172a;
             color: #f8fafc;
-            font-family: Arial, sans-serif;
+            font-family: "Segoe UI", Arial, sans-serif;
+
         }
 
         .container {
@@ -83,6 +88,99 @@
             background: #dc2626;
             color: white;
         }
+
+        /* Student dashboard personalized heading */
+
+
+        /* Personalized student dashboard header */
+
+        .student-heading {
+            flex: 1;
+            min-width: 260px;
+            padding: 10px 0;
+        }
+
+        .student-heading .class-title {
+            display: block;
+            font-family: "Segoe UI", Arial, sans-serif;
+            font-size: clamp(34px, 4vw, 48px);
+            font-weight: 400;
+            letter-spacing: -1px;
+            line-height: 1.15;
+            color: #fb923c;
+            margin: 0 0 14px 0;
+            padding: 0;
+        }
+
+        .student-heading .welcome-message {
+            display: block;
+            font-family: "Segoe UI", Arial, sans-serif;
+            font-size: clamp(21px, 2.5vw, 27px);
+            font-weight: 500;
+            letter-spacing: -0.3px;
+            line-height: 1.4;
+            color: #e2e8f0;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Compact Java Sandbox section */
+
+        .sandbox-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .sandbox-info h2 {
+            margin: 0 0 8px 0;
+        }
+
+        .sandbox-info p {
+            margin: 0;
+            color: #94a3b8;
+            font-size: 15px;
+        }
+
+        /* Java Sandbox buttons */
+
+        .sandbox-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .sandbox-actions .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 42px;
+            padding: 11px 18px;
+            box-sizing: border-box;
+            border: none;
+            border-radius: 7px;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            line-height: 20px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .sandbox-actions .secondary-button {
+            background: #334155;
+            color: #f8fafc;
+        }
+
+        .sandbox-actions .secondary-button:hover {
+            background: #475569;
+        }
+
+
     </style>
 </head>
 <body>
@@ -105,21 +203,21 @@
          th:text="${error}">
     </div>
     <header>
-        <div>
-            <h1>☕ Cobabe Code LMS</h1>
-            <p class="muted">
+
+        <div class="student-heading">
+
+            <h1 class="class-title"
+                th:text="${className}">
+                Computer Science — Period 3
+            </h1>
+
+            <p class="welcome-message">
                 Welcome,
-                <span th:text="${studentName}">
-                    Student
-                </span>
+                <span th:text="${studentName}">Student</span>!
             </p>
-            <p class="muted">
-                Class:
-                <strong th:text="${className}">
-                    Programming
-                </strong>
-            </p>
+
         </div>
+
         <a th:href="@{/student/password}">
             <button class="button" type="submit">
                 Change Password
@@ -132,30 +230,35 @@
         </form>
     </header>
 
-    <section class="cards">
-        <div class="card">
-            <h2>📚 My Assignments</h2>
-            <p>
-                Complete Java programming assignments
-                from your teacher.
-            </p>
-            <a class="button" href="#assignments">
-                View Assignments
-            </a>
-        </div>
 
-        <div class="card">
+
+    <section class="card sandbox-section">
+
+        <div class="sandbox-info">
             <h2>💻 Java Sandbox</h2>
             <p>
-                Write and experiment with Java code
-                without submitting an assignment.
+                Experiment with Java and save multiple programs.
             </p>
-            <a class="button"
-               th:href="@{/student/sandbox}">
-                Open Sandbox
-            </a>
         </div>
+
+        <div class="sandbox-actions">
+
+            <a class="button secondary-button"
+               th:href="@{/student/sandboxes}">
+                My Sandboxes
+            </a>
+
+            <button class="button"
+                    type="button"
+                    onclick="createNewSandbox()">
+                + New Sandbox
+            </button>
+
+        </div>
+
     </section>
+
+
 
     <section id="assignments">
         <h2>My Assignments</h2>
@@ -235,5 +338,83 @@
     </section>
 
 </main>
+
+<script th:inline="javascript">
+
+    const sandboxApiBase =
+        /*[[@{/api/student/sandbox}]]*/
+        "/api/student/sandbox";
+
+    const sandboxEditorBase =
+        /*[[@{/student/sandbox}]]*/
+        "/student/sandbox";
+
+    async function createNewSandbox() {
+
+        const name = prompt(
+            "Name your new sandbox:",
+            "Untitled Sandbox"
+        );
+
+        if (name === null) {
+            return;
+        }
+
+        if (!name.trim()) {
+            alert("Please enter a sandbox name.");
+            return;
+        }
+
+        const csrfToken = document.querySelector(
+            'meta[name="_csrf"]'
+        ).content;
+
+        const csrfHeader = document.querySelector(
+            'meta[name="_csrf_header"]'
+        ).content;
+
+        try {
+
+            const response = await fetch(
+                `${sandboxApiBase}/create`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        [csrfHeader]: csrfToken
+                    },
+                    body: JSON.stringify({
+                        name: name.trim()
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(
+                    "HTTP " + response.status
+                );
+            }
+
+            const sandbox = await response.json();
+
+            window.location.href =
+                `${sandboxEditorBase}/${sandbox.id}`;
+
+        } catch (error) {
+
+            console.error(
+                "Error creating sandbox:",
+                error
+            );
+
+            alert(
+                "Could not create sandbox. Please try again."
+            );
+        }
+    }
+
+</script>
+
+
 </body>
 </html>
