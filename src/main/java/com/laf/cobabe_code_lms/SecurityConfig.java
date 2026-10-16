@@ -2,13 +2,14 @@
 package com.laf.cobabe_code_lms;
 
 import com.laf.cobabe_code_lms.repositories.Students;
+import com.laf.cobabe_code_lms.repositories.Teachers;
 import com.laf.cobabe_code_lms.services.DatabaseUserDetailsService;
 import org.springframework.context.annotation.*;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.userdetails.*;
 import org.springframework.security.crypto.bcrypt.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+//import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -23,33 +24,18 @@ public class SecurityConfig {
     @Bean
     public UserDetailsService userDetailsService(
             Students students,
-            PasswordEncoder encoder) {
+            Teachers teachers) {
 
-        DatabaseUserDetailsService database =
-                new DatabaseUserDetailsService(students);
-
-        InMemoryUserDetailsManager temporaryTeacher =
-                new InMemoryUserDetailsManager(
-                        User.withUsername("teacher")
-                                .password(encoder.encode("ChangeMe123!"))
-                                .roles("TEACHER")
-                                .build()
-                );
-
-        return username -> {
-            if ("teacher".equals(username)) {
-                return temporaryTeacher
-                        .loadUserByUsername(username);
-            }
-            return database.loadUserByUsername(username);
-        };
+        return new DatabaseUserDetailsService(students, teachers);
     }
 
     @Bean
     public SecurityFilterChain chain(
             HttpSecurity http,
             Students students,
-     StudentPasswordChangeFilter passwordFilter) throws Exception {
+            Teachers teachers,
+     StudentPasswordChangeFilter passwordFilter,
+            TeacherSetupFilter teacherSetupFilter) throws Exception {
 
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers(
@@ -92,8 +78,17 @@ public class SecurityConfig {
                                     a.getAuthority().equals("ROLE_TEACHER"));
 
                     if (teacher) {
+
+                        var teacherAccount = teachers.findByUsername(auth.getName())
+                                .orElseThrow();
+
+                        String destination = teacherAccount.mustCompleteSetup
+                                ? "/teacher/setup"
+                                : "/teacher";
+
                         response.sendRedirect(
-                                request.getContextPath() + "/teacher");
+                                request.getContextPath() + destination);
+
                         return;
                     }
 
@@ -120,6 +115,12 @@ public class SecurityConfig {
                 UsernamePasswordAuthenticationFilter.class
         );
 
+        http.addFilterAfter(
+                teacherSetupFilter,
+                StudentPasswordChangeFilter.class
+        );
+
+
         return http.build();
     }
 
@@ -132,6 +133,17 @@ public class SecurityConfig {
                 new org.springframework.boot.web.servlet.FilterRegistrationBean<>(filter);
 
         registration.setEnabled(false);
+        return registration;
+    }
+    @Bean
+    public org.springframework.boot.web.servlet.FilterRegistrationBean<TeacherSetupFilter>
+    teacherSetupFilterRegistration(TeacherSetupFilter filter) {
+
+        var registration =
+                new org.springframework.boot.web.servlet.FilterRegistrationBean<>(filter);
+
+        registration.setEnabled(false);
+
         return registration;
     }
 }
