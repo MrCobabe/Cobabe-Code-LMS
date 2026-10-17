@@ -65,6 +65,13 @@
             font-size: 14px;
         }
 
+        .console-heading {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
         #editor {
             height: 420px;
             width: 100%;
@@ -155,10 +162,6 @@
 
     <div class="actions">
 
-        <p class="dev-warning">
-            Development mode: Java execution is not sandboxed.
-        </p>
-
         <span id="saveStatus">
             Loading editor...
         </span>
@@ -214,7 +217,15 @@
     </section>
 
     <section class="panel">
-        <div class="panel-heading">Console Output</div>
+        <div class="panel-heading console-heading">
+            <span>Console Output</span>
+
+            <button id="consoleRunButton"
+                    onclick="runJava()"
+                    disabled>
+                ▶ Run
+            </button>
+        </div>
 
         <pre id="consoleOutput">Click Run to execute your program.</pre>
     </section>
@@ -259,6 +270,20 @@
 
     const runButton =
         document.getElementById("runButton");
+
+    const consoleRunButton =
+        document.getElementById("consoleRunButton");
+
+    let javaRunning = false;
+
+    function setRunButtonsRunning(running) {
+        javaRunning = running;
+
+        for (const button of [runButton, consoleRunButton]) {
+            button.disabled = running || !editor;
+            button.textContent = running ? "Running..." : "▶ Run";
+        }
+    }
 
     const sandboxId = document.querySelector(
         'meta[name="sandbox-id"]'
@@ -487,7 +512,7 @@
                 scheduleSandboxSave
             );
 
-            runButton.disabled = false;
+            setRunButtonsRunning(false);
         }
     );
 
@@ -496,6 +521,10 @@
     // ---------------------------------------
 
     async function runJava() {
+
+        if (javaRunning) {
+            return;
+        }
 
         const output =
             document.getElementById("consoleOutput");
@@ -506,8 +535,7 @@
             return;
         }
 
-        runButton.disabled = true;
-        runButton.textContent = "Running...";
+        setRunButtonsRunning(true);
 
         output.textContent =
             "Sending code to server...";
@@ -568,8 +596,7 @@
 
         } finally {
 
-            runButton.disabled = false;
-            runButton.textContent = "▶ Run";
+            setRunButtonsRunning(false);
         }
     }
 

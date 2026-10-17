@@ -40,7 +40,7 @@ public class SecurityConfig {
         http.authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/", "/login", "/style.css",
-                                "/css/**", "/js/**", "/images/**", "/h2-console/**"
+                                "/css/**", "/js/**", "/images/**"
                         ).permitAll()
 
 // Allow verification links without requiring login.
@@ -64,15 +64,6 @@ public class SecurityConfig {
 
                 .anyRequest().authenticated()
 
-        );
-        // NEW: Allow H2 Console form submissions delete later
-        http.csrf(csrf -> csrf
-                .ignoringRequestMatchers("/h2-console/**")
-        );
-
-        // NEW: Allow H2 Console to display its frames delete later
-        http.headers(headers -> headers
-                .frameOptions(frame -> frame.sameOrigin())
         );
 
         http.formLogin(form -> form

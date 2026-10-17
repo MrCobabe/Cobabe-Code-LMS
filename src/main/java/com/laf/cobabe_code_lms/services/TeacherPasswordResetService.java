@@ -24,6 +24,9 @@ import java.util.Optional;
 @Service
 public class TeacherPasswordResetService {
 
+    private static final long COOLDOWN_SECONDS = 60;
+    private static final long MAX_REQUESTS_PER_HOUR = 5;
+
     private final TeacherPasswordResetTokens tokens;
     private final Teachers teachers;
     private final EmailService emailService;
@@ -47,6 +50,7 @@ public class TeacherPasswordResetService {
 
     // Request a password reset email.
     // Returns without revealing whether the address exists.
+    @Transactional
     public void requestPasswordReset(String emailAddress) {
 
         if (emailAddress == null || emailAddress.isBlank()) {
@@ -71,6 +75,31 @@ public class TeacherPasswordResetService {
 
         Teacher teacher = matchingTeacher.get();
 
+        Instant now = Instant.now();
+
+        // LIMIT 1:
+        // Allow at most one reset request every 60 seconds.
+        Instant cooldownStart = now.minusSeconds(
+                COOLDOWN_SECONDS);
+
+        if (tokens.existsByTeacherAndCreatedAtAfter(
+                teacher, cooldownStart)) {
+            return;
+        }
+
+        // LIMIT 2:
+        // Allow at most five reset requests per hour.
+        Instant hourStart = now.minus(
+                1, ChronoUnit.HOURS);
+
+        long recentRequests =
+                tokens.countByTeacherAndCreatedAtAfter(
+                        teacher, hourStart);
+
+        if (recentRequests >= MAX_REQUESTS_PER_HOUR) {
+            return;
+        }
+
         // Generate a secure random token.
         byte[] randomBytes = new byte[32];
         secureRandom.nextBytes(randomBytes);
@@ -84,8 +113,9 @@ public class TeacherPasswordResetService {
 
         record.teacher = teacher;
         record.tokenHash = hashToken(rawToken);
-        record.createdAt = Instant.now();
-        record.expiresAt = record.createdAt.plus(
+        record.emailAddress = teacher.recoveryEmail;
+        record.createdAt = now;
+        record.expiresAt = now.plus(
                 15, ChronoUnit.MINUTES);
         record.used = false;
 
@@ -130,7 +160,7 @@ public class TeacherPasswordResetService {
             String newPassword) {
 
         if (newPassword == null
-                || newPassword.isBlank()) {
+                || newPassword.length() < 6) {
             return false;
         }
 
@@ -159,10 +189,15 @@ public class TeacherPasswordResetService {
         record.used = true;
 
         teachers.save(teacher);
-        tokens.save(record);
+        tokens.saveAndFlush(record);
+
+// Invalidate every other outstanding reset link
+// belonging to this teacher.
+        tokens.invalidateAllForTeacher(teacher);
 
         return true;
     }
+
 
     private Optional<TeacherPasswordResetToken> findValidToken(
             String rawToken) {
@@ -179,8 +214,25 @@ public class TeacherPasswordResetService {
         return tokens.findByTokenHash(hashToken(rawToken))
                 .filter(record -> !record.used)
                 .filter(record ->
-                        record.expiresAt.isAfter(Instant.now()));
+                        record.expiresAt.isAfter(Instant.now()))
+
+                // Reject older tokens that have no email recorded.
+                .filter(record ->
+                        record.emailAddress != null)
+
+                // Require the teacher's recovery email
+                // to still be verified.
+                .filter(record ->
+                        record.teacher.recoveryEmailVerified)
+
+                // Require the current recovery email to match
+                // the email used when the token was issued.
+                .filter(record ->
+                        record.teacher.recoveryEmail != null
+                                && record.emailAddress.equalsIgnoreCase(
+                                record.teacher.recoveryEmail));
     }
+
 
     private String hashToken(String rawToken) {
 

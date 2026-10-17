@@ -19,6 +19,10 @@ public class TeacherPasswordResetToken {
     @Column(nullable = false, unique = true, length = 64)
     public String tokenHash;
 
+    // Recovery email associated with this reset request.
+    @Column(length = 254)
+    public String emailAddress;
+
     @Column(nullable = false)
     public Instant createdAt = Instant.now();
 
