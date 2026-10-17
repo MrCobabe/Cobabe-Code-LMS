@@ -9,7 +9,7 @@
 </head>
 <body>
 <main class="center">
-    <h1>☕ Cobabe Code LMS</h1>
+    <h1>Cobabe Code LMS</h1>
     <p>Write, run, and submit Java code from your browser.</p>
 
     <h2>Sign In</h2>
@@ -46,7 +46,14 @@
         <button class="button" type="submit">
             Sign In
         </button>
+        <div style="text-align: center; margin-top: 15px;">
+            <a th:href="@{/teacher/forgot-password}"
+               style="color: #fb923c; text-decoration: none;">
+                Forgot Password?
+            </a>
+        </div>
     </form>
+
 </main>
 </body>
 </html>

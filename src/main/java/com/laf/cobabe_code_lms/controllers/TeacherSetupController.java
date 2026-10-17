@@ -85,9 +85,9 @@ public class TeacherSetupController {
             return "teacher-setup";
         }
 
-        if (password.length() < 12) {
+        if (password.length() < 6) {
             model.addAttribute("error",
-                    "Password must contain at least 12 characters.");
+                    "Password must contain at least 6 characters.");
             return "teacher-setup";
         }
 

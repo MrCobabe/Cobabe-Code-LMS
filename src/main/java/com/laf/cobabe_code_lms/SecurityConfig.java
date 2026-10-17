@@ -38,14 +38,24 @@ public class SecurityConfig {
             TeacherSetupFilter teacherSetupFilter) throws Exception {
 
         http.authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                        "/", "/login", "/style.css",
-                        "/css/**", "/js/**", "/images/**", "/h2-console/**"
-                ).permitAll()
+                        .requestMatchers(
+                                "/", "/login", "/style.css",
+                                "/css/**", "/js/**", "/images/**", "/h2-console/**"
+                        ).permitAll()
 
-                .requestMatchers(
-                        "/teacher", "/teacher/**"
-                ).hasRole("TEACHER")
+// Allow verification links without requiring login.
+                        .requestMatchers(
+                                org.springframework.http.HttpMethod.GET,
+                                "/teacher/verify-email"
+                        ).permitAll()
+                        .requestMatchers(
+                                "/teacher/forgot-password",
+                                "/teacher/reset-password"
+                        ).permitAll()
+// All other teacher pages require teacher authentication.
+                        .requestMatchers(
+                                "/teacher", "/teacher/**"
+                        ).hasRole("TEACHER")
 
                 .requestMatchers(
                         "/student", "/student/**",

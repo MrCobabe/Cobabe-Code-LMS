@@ -1,1 +1,56 @@
-<!doctype html><html xmlns:th="http://www.thymeleaf.org"><head><meta charset="utf-8"><title>Dashboard</title><link rel="stylesheet" href="/style.css"></head><body><header><a href="/dashboard">☕ Java Classroom</a><span th:text="${user.name}"></span><form action="/logout" method="post"><input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><button>Log out</button></form></header><main><h1 th:text="${user.teacher} ? 'Teacher dashboard' : 'My assignments'"></h1><section th:if="${user.teacher}"><h2>Create assignment</h2><form method="post" action="/teacher/assignments"><input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><input name="title" maxlength="160" placeholder="Assignment title" required><textarea name="description" maxlength="12000" placeholder="Instructions" required></textarea><textarea name="starterCode" rows="5" placeholder="Starter Java code (optional)"></textarea><button>Create assignment</button></form></section><section><h2>Assignments</h2><div class="panel" th:each="a : ${assignments}"><a th:href="@{/assignment/{id}(id=${a.id})}" th:text="${a.title}"></a><p th:text="${a.description}"></p></div></section><section><h2 th:text="${user.teacher} ? 'All submissions' : 'My submissions'"></h2><table><thead><tr><th>Assignment</th><th th:if="${user.teacher}">Student</th><th>Submitted</th><th>Grade</th><th th:if="${user.teacher}">Review</th></tr></thead><tbody><tr th:each="s : ${submissions}"><td th:text="${s.assignment.title}"></td><td th:if="${user.teacher}" th:text="${s.student.name}"></td><td th:text="${s.submittedAt}"></td><td th:text="${s.grade == null} ? 'Pending' : ${s.grade}"></td><td th:if="${user.teacher}"><a th:href="@{/teacher/submission/{id}(id=${s.id})}">Open</a></td></tr></tbody></table></section></main></body></html>
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header><a href="/dashboard">Java Classroom</a><span th:text="${user.name}"></span>
+    <form action="/logout" method="post"><input type="hidden" th:name="${_csrf.parameterName}"
+                                                th:value="${_csrf.token}">
+        <button>Log out</button>
+    </form>
+</header>
+<main><h1 th:text="${user.teacher} ? 'Teacher dashboard' : 'My assignments'"></h1>
+    <section th:if="${user.teacher}"><h2>Create assignment</h2>
+        <form method="post" action="/teacher/assignments"><input type="hidden" th:name="${_csrf.parameterName}"
+                                                                 th:value="${_csrf.token}"><input name="title"
+                                                                                                  maxlength="160"
+                                                                                                  placeholder="Assignment title"
+                                                                                                  required><textarea
+                name="description" maxlength="12000" placeholder="Instructions" required></textarea><textarea
+                name="starterCode" rows="5" placeholder="Starter Java code (optional)"></textarea>
+            <button>Create assignment</button>
+        </form>
+    </section>
+    <section><h2>Assignments</h2>
+        <div class="panel" th:each="a : ${assignments}"><a th:href="@{/assignment/{id}(id=${a.id})}"
+                                                           th:text="${a.title}"></a>
+            <p th:text="${a.description}"></p></div>
+    </section>
+    <section><h2 th:text="${user.teacher} ? 'All submissions' : 'My submissions'"></h2>
+        <table>
+            <thead>
+            <tr>
+                <th>Assignment</th>
+                <th th:if="${user.teacher}">Student</th>
+                <th>Submitted</th>
+                <th>Grade</th>
+                <th th:if="${user.teacher}">Review</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="s : ${submissions}">
+                <td th:text="${s.assignment.title}"></td>
+                <td th:if="${user.teacher}" th:text="${s.student.name}"></td>
+                <td th:text="${s.submittedAt}"></td>
+                <td th:text="${s.grade == null} ? 'Pending' : ${s.grade}"></td>
+                <td th:if="${user.teacher}"><a th:href="@{/teacher/submission/{id}(id=${s.id})}">Open</a></td>
+            </tr>
+            </tbody>
+        </table>
+    </section>
+</main>
+</body>
+</html>

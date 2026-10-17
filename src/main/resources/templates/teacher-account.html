@@ -1,0 +1,242 @@
+
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+    <title>Account Settings | Cobabe Code LMS</title>
+
+    <link rel="stylesheet" th:href="@{/style.css}">
+
+    <style>
+        .account-container {
+            max-width: 650px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        .account-card {
+            background: #1e293b;
+            color: white;
+            padding: 30px;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+
+        .account-card h2 {
+            margin-top: 0;
+            color: #f97316;
+        }
+
+        .account-card label {
+            display: block;
+            margin-top: 16px;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+
+        .account-card input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #475569;
+            background: #0f172a;
+            color: white;
+        }
+
+        .account-card button {
+            background: #f97316;
+            color: #111827;
+            border: none;
+            border-radius: 6px;
+            padding: 12px 20px;
+            margin-top: 20px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .account-card button:hover {
+            background: #fb923c;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 24px;
+            color: #f97316;
+            text-decoration: none;
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .success {
+            background: #14532d;
+            color: white;
+        }
+
+        .error {
+            background: #7f1d1d;
+            color: white;
+        }
+
+        .help-text {
+            color: #cbd5e1;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+
+<main class="account-container">
+
+    <a class="back-link" th:href="@{/teacher}">
+        ← Back to Dashboard
+    </a>
+
+    <h1>Teacher Account Settings</h1>
+
+    <div class="message success"
+         th:if="${success}"
+         th:text="${success}">
+    </div>
+
+    <div class="message error"
+         th:if="${error}"
+         th:text="${error}">
+    </div>
+
+    <section class="account-card">
+        <h2>🔒 Change Password</h2>
+
+        <p class="help-text">
+            Enter your current password and choose
+            a new password with at least 8 characters.
+        </p>
+
+        <form th:action="@{/teacher/account/password}"
+              method="post">
+
+            <label for="currentPassword">
+                Current Password
+            </label>
+            <input id="currentPassword"
+                   name="currentPassword"
+                   type="password"
+                   autocomplete="current-password"
+                   required>
+
+            <label for="newPassword">
+                New Password
+            </label>
+            <input id="newPassword"
+                   name="newPassword"
+                   type="password"
+                   autocomplete="new-password"
+                   minlength="8"
+                   required>
+
+            <label for="confirmPassword">
+                Confirm New Password
+            </label>
+            <input id="confirmPassword"
+                   name="confirmPassword"
+                   type="password"
+                   autocomplete="new-password"
+                   minlength="8"
+                   required>
+
+            <input type="hidden"
+                   th:name="${_csrf.parameterName}"
+                   th:value="${_csrf.token}">
+
+            <button type="submit">
+                Change Password
+            </button>
+        </form>
+    </section>
+
+
+    <section class="account-card">
+        <h2>📧 Recovery Email</h2>
+
+        <p class="help-text">
+            Your recovery email allows you to reset your
+            password if you forget it. The email address
+            must be verified before password recovery
+            can be enabled.
+        </p>
+
+        <p>
+            <strong>Current email:</strong>
+            <span th:text="${recoveryEmail != null
+                and !recoveryEmail.isBlank()
+                ? recoveryEmail : 'Not configured'}">
+            Not configured
+        </span>
+        </p>
+
+        <div th:if="${emailVerified}"
+             class="message success">
+            ✓ Your recovery email is verified.
+        </div>
+
+        <div th:if="${!emailVerified
+                 and recoveryEmail != null
+                 and !recoveryEmail.isBlank()}">
+
+            <div class="message error">
+                Your recovery email has not been verified.
+            </div>
+
+            <p class="help-text">
+                Click below to receive a verification
+                link at your recovery email address.
+                The link expires after 15 minutes.
+            </p>
+
+            <form th:action="@{/teacher/account/send-verification}"
+                  method="post">
+
+                <input type="hidden"
+                       th:name="${_csrf.parameterName}"
+                       th:value="${_csrf.token}">
+
+                <button type="submit">
+                    Send Verification Email
+                </button>
+            </form>
+        </div>
+
+        <div th:if="${recoveryEmail == null
+                 or recoveryEmail.isBlank()}">
+
+            <p class="help-text">
+                No recovery email has been configured.
+                Email editing will be added next.
+            </p>
+        </div>
+
+        <div class="message success"
+             th:if="${param.verificationSent}">
+            Verification email sent! Check your inbox
+            and follow the link within 15 minutes.
+        </div>
+
+        <div class="message success"
+             th:if="${param.alreadyVerified}">
+            Your recovery email is already verified.
+        </div>
+    </section>
+
+
+</main>
+
+</body>
+</html>

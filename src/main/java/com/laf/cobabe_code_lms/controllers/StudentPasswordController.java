@@ -69,12 +69,12 @@ public class StudentPasswordController {
             return "redirect:/student/password";
         }
 
-        if (newPassword.length() < 8 ||
+        if (newPassword.length() < 4 ||
                 newPassword.length() > 128) {
 
             redirect.addFlashAttribute(
                     "error",
-                    "Password must be between 8 and 128 characters.");
+                    "Password must be between 4 and 128 characters.");
 
             return "redirect:/student/password";
         }
