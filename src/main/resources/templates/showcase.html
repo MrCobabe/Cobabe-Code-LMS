@@ -1,0 +1,526 @@
+
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
+
+    <title>Student Projects | Cobabe Code</title>
+
+    <link rel="stylesheet" th:href="@{/style.css}">
+
+    <style>
+        .showcase-hero {
+            text-align: center;
+            padding: 45px 20px 25px;
+        }
+
+        .showcase-hero h1 {
+            font-size: clamp(2rem, 5vw, 3rem);
+            margin-bottom: 12px;
+        }
+
+        .showcase-hero p {
+            color: #94a3b8;
+            max-width: 650px;
+            margin: 0 auto;
+            line-height: 1.7;
+        }
+
+        /* JAVA INSTALLATION BANNER */
+
+        .java-banner {
+            background: #142238;
+            border: 1px solid #30445e;
+            border-left: 4px solid #f97316;
+            border-radius: 10px;
+            padding: 22px 25px;
+            margin: 20px auto 40px;
+            max-width: 1050px;
+        }
+
+        .java-banner-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .java-banner-icon {
+            font-size: 1.8rem;
+        }
+
+        .java-banner h2 {
+            color: #f8fafc;
+            font-size: 1.25rem;
+            margin: 0;
+        }
+
+        .java-banner p {
+            color: #cbd5e1;
+            line-height: 1.6;
+            margin: 0 0 15px;
+            font-size: 0.95rem;
+        }
+
+        .java-downloads {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+
+        .java-download-button {
+            display: inline-block;
+            padding: 10px 18px;
+            background: #253850;
+            color: #f8fafc;
+            border: 1px solid #405672;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .java-download-button:hover {
+            background: #344d6c;
+            border-color: #f97316;
+        }
+
+        .java-banner .java-instructions {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            margin-bottom: 0;
+        }
+
+        .java-instructions code {
+            background: #07101e;
+            color: #fb923c;
+            padding: 3px 7px;
+            border-radius: 4px;
+            overflow-wrap: anywhere;
+        }
+
+        /* SCHOOL YEAR HEADINGS */
+
+        .showcase-heading {
+            margin-top: 35px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #30445e;
+        }
+
+        .showcase-heading h2 {
+            margin: 0;
+        }
+
+        /* CLASS LEFT, STUDENTS RIGHT */
+
+        .showcase-columns {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 24px;
+            margin-top: 20px;
+            margin-bottom: 45px;
+        }
+
+        .showcase-column {
+            min-width: 0;
+        }
+
+        .project-year {
+            color: #fb923c;
+            font-weight: 600;
+            margin: 0 0 15px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #30445e;
+            text-align: center;
+        }
+
+        .project-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 14px;
+        }
+
+        /* COMPACT PROJECT CARDS */
+
+        .project-card {
+            display: grid;
+            grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
+            background: #142238;
+            border: 1px solid #30445e;
+            border-radius: 10px;
+            overflow: hidden;
+            align-items: stretch;
+        }
+
+        .project-image {
+            min-height: 145px;
+            background: #07101e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b;
+            font-size: 2rem;
+            overflow: hidden;
+        }
+
+        .project-image img {
+            display: block;
+            width: 100%;
+            height: auto;
+            max-height: 220px;
+            object-fit: contain;
+        }
+
+        .project-content {
+            min-width: 0;
+            padding: 14px;
+            overflow-wrap: anywhere;
+        }
+
+        .project-content h3 {
+            color: #f8fafc;
+            font-size: 1rem;
+            margin: 0 0 8px;
+        }
+
+        .project-content p {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            margin: 0 0 10px;
+            white-space: pre-line;
+        }
+
+        .project-credit {
+            color: #cbd5e1;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+        }
+
+        .download-button {
+            display: inline-block;
+            margin-top: 6px;
+            padding: 8px 12px;
+            background: #ea580c;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .download-button:hover {
+            background: #f97316;
+        }
+
+        .empty-showcase {
+            text-align: center;
+            padding: 45px 20px;
+        }
+
+        .empty-showcase p {
+            color: #94a3b8;
+        }
+
+        .showcase-footer {
+            text-align: center;
+            padding: 30px 20px;
+            color: #94a3b8;
+        }
+
+        /* TABLETS AND SMALL SCREENS */
+
+        @media (max-width: 850px) {
+            .showcase-columns {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* PHONES */
+
+        @media (max-width: 480px) {
+            .project-card {
+                grid-template-columns: 1fr;
+            }
+
+            .project-image {
+                min-height: 160px;
+            }
+
+            .project-image img {
+                max-height: 260px;
+            }
+
+            .java-banner {
+                padding: 18px;
+            }
+
+            .java-downloads {
+                flex-direction: column;
+            }
+
+            .java-download-button {
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <strong>Cobabe Code</strong>
+
+    <nav>
+        <a th:href="@{/}">
+            LMS Login
+        </a>
+    </nav>
+</header>
+
+<main>
+
+    <!-- SHOWCASE INTRODUCTION -->
+
+    <div class="showcase-hero">
+        <h1>Student Project Showcase</h1>
+
+        <p>
+            Explore the applications, games,
+            and creative programming projects
+            built by our computer science students.
+        </p>
+    </div>
+
+    <!-- JAVA 25 INSTALLATION BANNER -->
+
+    <aside class="java-banner">
+
+        <div class="java-banner-header">
+            <span class="java-banner-icon" aria-hidden="true">
+
+            </span>
+
+            <h2>
+                Java 25 Required to Run Projects
+            </h2>
+        </div>
+
+        <p>
+            Our downloadable projects are Java desktop applications.
+            To run them on your computer, we recommend installing
+            Java 25 first. Java is free, and you only need to
+            install it once to run compatible projects.
+        </p>
+
+        <div class="java-downloads">
+
+            <a class="java-download-button"
+               href="https://adoptium.net/temurin/releases/?version=25&amp;os=windows"
+               target="_blank"
+               rel="noopener noreferrer">
+                Download for Windows ↗
+            </a>
+
+            <a class="java-download-button"
+               href="https://adoptium.net/temurin/releases/?version=25&amp;os=mac"
+               target="_blank"
+               rel="noopener noreferrer">
+                Download for macOS ↗
+            </a>
+
+            <a class="java-download-button"
+               href="https://adoptium.net/temurin/releases/?version=25&amp;os=linux"
+               target="_blank"
+               rel="noopener noreferrer">
+                Download for Linux ↗
+            </a>
+
+        </div>
+
+        <p class="java-instructions">
+            Choose a Java 25 installer for your operating system
+            and processor. After installation, download a project
+            and run its executable JAR file.
+            If double-clicking doesn't work, open a terminal
+            in the download folder and enter:
+            <code>java -jar filename.jar</code>
+        </p>
+
+    </aside>
+
+    <!-- EMPTY SHOWCASE -->
+
+    <section th:if="${projectsByYear.isEmpty()}">
+
+        <div class="empty-showcase">
+            <h2>Projects Coming Soon!</h2>
+
+            <p>
+                We're preparing our student project gallery.
+                Check back soon!
+            </p>
+        </div>
+
+    </section>
+
+    <!-- PROJECTS GROUPED BY SCHOOL YEAR -->
+
+    <section th:each="yearEntry : ${projectsByYear}">
+
+        <div class="showcase-heading">
+            <h2 th:text="${yearEntry.key}">
+                2026-2027
+            </h2>
+        </div>
+
+        <div class="showcase-columns">
+
+            <!-- LEFT COLUMN: CLASS PROJECTS -->
+
+            <section class="showcase-column">
+
+                <h3 class="project-year">
+                    Class Projects
+                </h3>
+
+                <div class="project-grid">
+
+                    <article class="project-card"
+                             th:each="project : ${yearEntry.value}"
+                             th:if="${project.projectType == 'CLASS'}">
+
+                        <!-- SCREENSHOT -->
+
+                        <div class="project-image">
+
+                            <img th:if="${hasImages[project.id]}"
+                                 th:src="@{/showcase/{id}/image(id=${project.id})}"
+                                 th:alt="${project.title}"
+                                 loading="lazy">
+
+                            <span th:unless="${hasImages[project.id]}">
+                                &lt;/&gt;
+                            </span>
+
+                        </div>
+
+                        <!-- PROJECT INFORMATION -->
+
+                        <div class="project-content">
+
+                            <h3 th:text="${project.title}">
+                                Project Title
+                            </h3>
+
+                            <p th:text="${project.description}">
+                                Project description
+                            </p>
+
+                            <!-- CREATOR CREDIT -->
+
+                            <div class="project-credit"
+                                 th:if="${project.creatorCredit != null
+                                     and !project.creatorCredit.isBlank()}"
+                                 th:text="${project.creatorCredit}">
+                                Creator Name
+                            </div>
+
+                            <!-- JAR DOWNLOAD -->
+
+                            <a class="download-button"
+                               th:if="${hasJars[project.id]}"
+                               th:href="@{/showcase/{id}/download(id=${project.id})}">
+                                Download Project (.jar)
+                            </a>
+
+                        </div>
+
+                    </article>
+
+                </div>
+
+            </section>
+
+            <!-- RIGHT COLUMN: STUDENT PROJECTS -->
+
+            <section class="showcase-column">
+
+                <h3 class="project-year">
+                    Student Projects
+                </h3>
+
+                <div class="project-grid">
+
+                    <article class="project-card"
+                             th:each="project : ${yearEntry.value}"
+                             th:if="${project.projectType == 'STUDENT'}">
+
+                        <!-- SCREENSHOT -->
+
+                        <div class="project-image">
+
+                            <img th:if="${hasImages[project.id]}"
+                                 th:src="@{/showcase/{id}/image(id=${project.id})}"
+                                 th:alt="${project.title}"
+                                 loading="lazy">
+
+                            <span th:unless="${hasImages[project.id]}">
+                                &lt;/&gt;
+                            </span>
+
+                        </div>
+
+                        <!-- PROJECT INFORMATION -->
+
+                        <div class="project-content">
+
+                            <h3 th:text="${project.title}">
+                                Project Title
+                            </h3>
+
+                            <p th:text="${project.description}">
+                                Project description
+                            </p>
+
+                            <!-- CREATOR CREDIT -->
+
+                            <div class="project-credit"
+                                 th:if="${project.creatorCredit != null
+                                     and !project.creatorCredit.isBlank()}"
+                                 th:text="${project.creatorCredit}">
+                                Creator Name
+                            </div>
+
+                            <!-- JAR DOWNLOAD -->
+
+                            <a class="download-button"
+                               th:if="${hasJars[project.id]}"
+                               th:href="@{/showcase/{id}/download(id=${project.id})}">
+                                Download Project (.jar)
+                            </a>
+
+                        </div>
+
+                    </article>
+
+                </div>
+
+            </section>
+
+        </div>
+
+    </section>
+
+</main>
+
+<footer class="showcase-footer">
+    Cobabe Code — Learning Through Programming
+</footer>
+
+</body>
+</html>

@@ -5,14 +5,18 @@
     <meta charset="UTF-8">
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0">
+
     <title>Teacher Dashboard | Cobabe Code LMS</title>
+
     <link rel="stylesheet" th:href="@{/style.css}">
+
     <style>
         .dashboard {
             max-width: 1200px;
             margin: 40px auto;
             padding: 20px;
         }
+
         .header-actions {
             display: flex;
             align-items: center;
@@ -29,9 +33,6 @@
             font-weight: bold;
         }
 
-        /*.account-button:hover {*/
-        /*    background: #475569;*/
-        /*}*/
         .dashboard-header {
             display: flex;
             justify-content: space-between;
@@ -41,44 +42,91 @@
             margin-bottom: 30px;
         }
 
+        /* FIVE CARDS ACROSS */
+
         .dashboard-grid {
             display: grid;
-            grid-template-columns:
-                repeat(auto-fit, minmax(240px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 15px;
         }
+
+        /* DASHBOARD CARDS */
 
         .dashboard-card {
             background: #1e293b;
             color: white;
-            padding: 25px;
+            padding: 18px;
             border-radius: 12px;
             border: 1px solid #334155;
+            min-width: 0;
+
+            display: flex;
+            flex-direction: column;
         }
 
         .dashboard-card h2 {
-            margin-top: 0;
+            margin: 0 0 15px;
             color: #f97316;
+            font-size: 1.2rem;
         }
 
         .dashboard-card p {
             color: #cbd5e1;
-            min-height: 60px;
+            line-height: 1.5;
+            margin: 0 0 20px;
+
+            flex-grow: 1;
         }
 
-        .dashboard-card a {
-            display: inline-block;
+        /* MATCHING BUTTON AREAS */
+
+        .card-actions {
+            display: grid;
+            grid-template-rows: auto auto;
+            gap: 8px;
+            margin-top: auto;
+        }
+
+        .card-actions a {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
             background: #f97316;
             color: #111827;
-            padding: 10px 18px;
+            padding: 9px 10px;
+            min-height: 42px;
             border-radius: 6px;
             text-decoration: none;
+            font-size: 0.85rem;
             font-weight: bold;
+            text-align: center;
+            box-sizing: border-box;
         }
 
-        .dashboard-card a:hover {
+        .card-actions a:hover {
             background: #fb923c;
         }
+
+        /* EMPTY SECOND BUTTON SLOT */
+
+        .action-placeholder {
+            min-height: 42px;
+        }
+
+        /* SHOWCASE PUBLIC LINK */
+
+        .card-actions .showcase-public-link {
+            background: transparent;
+            color: #fb923c;
+            border: 1px solid #f97316;
+        }
+
+        .card-actions .showcase-public-link:hover {
+            background: #334155;
+        }
+
+        /* LOGOUT */
 
         .logout-button {
             padding: 10px 18px;
@@ -92,18 +140,44 @@
         .welcome {
             margin-bottom: 30px;
         }
+
+        /* TABLETS */
+
+        @media (max-width: 1050px) {
+            .dashboard-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        /* PHONES */
+
+        @media (max-width: 600px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .dashboard {
+                margin: 20px auto;
+                padding: 15px;
+            }
+
+            .dashboard-header {
+                align-items: flex-start;
+            }
+        }
     </style>
 </head>
+
 <body>
 
 <main class="dashboard">
 
     <header class="dashboard-header">
+
         <div>
             <h1>Cobabe Code LMS</h1>
             <p>Teacher Dashboard</p>
         </div>
-
 
         <div class="header-actions">
 
@@ -124,6 +198,7 @@
 
     <section class="welcome">
         <h2>Welcome, Teacher!</h2>
+
         <p>
             Manage your programming classes,
             assignments, students, and grades.
@@ -132,8 +207,10 @@
 
     <section class="dashboard-grid">
 
+        <!-- CLASSES -->
 
         <article class="dashboard-card">
+
             <h2>🏫 Classes</h2>
 
             <p>
@@ -141,43 +218,109 @@
                 and organize your programming courses.
             </p>
 
-            <a th:href="@{/teacher/classes}">
-                Manage Classes
-            </a>
+            <div class="card-actions">
+                <a th:href="@{/teacher/classes}">
+                    Manage Classes
+                </a>
+
+                <div class="action-placeholder"
+                     aria-hidden="true"></div>
+            </div>
+
         </article>
 
+        <!-- STUDENTS -->
 
         <article class="dashboard-card">
+
             <h2>👥 Students</h2>
+
             <p>
                 Add students, manage accounts,
                 and import class rosters from CSV.
             </p>
-            <a th:href="@{/teacher/students}">
-                Manage Students
-            </a>
+
+            <div class="card-actions">
+                <a th:href="@{/teacher/students}">
+                    Manage Students
+                </a>
+
+                <div class="action-placeholder"
+                     aria-hidden="true"></div>
+            </div>
+
         </article>
 
+        <!-- GRADEBOOK -->
+
         <article class="dashboard-card">
+
             <h2>📝 Gradebook</h2>
+
             <p>
                 Review student Java programs,
                 provide feedback, and assign grades.
             </p>
-            <a th:href="@{/teacher/gradebook}">
-                Gradebook
-            </a>
+
+            <div class="card-actions">
+                <a th:href="@{/teacher/gradebook}">
+                    Gradebook
+                </a>
+
+                <div class="action-placeholder"
+                     aria-hidden="true"></div>
+            </div>
+
         </article>
 
+        <!-- CODE EDITOR -->
+
         <article class="dashboard-card">
+
             <h2>💻 Code Editor</h2>
+
             <p>
                 Open the Java editor to test
                 programming examples.
             </p>
-            <a th:href="@{/teacher/sandboxes}">
-                Open Teacher Sandbox
-            </a>
+
+            <div class="card-actions">
+                <a th:href="@{/teacher/sandboxes}">
+                    Open Teacher Sandbox
+                </a>
+
+                <div class="action-placeholder"
+                     aria-hidden="true"></div>
+            </div>
+
+        </article>
+
+        <!-- PROJECT SHOWCASE -->
+
+        <article class="dashboard-card">
+
+            <h2>🌟 Project Showcase</h2>
+
+            <p>
+                Publish and manage student and class
+                projects for the public showcase.
+            </p>
+
+            <div class="card-actions">
+
+                <a th:href="@{/teacher/showcase}">
+                    Manage Showcase
+                </a>
+
+                <a class="showcase-public-link"
+                   th:href="@{/showcase}"
+                   target="_blank"
+                   rel="noopener noreferrer">
+                    View Public Showcase ↗
+                </a>
+
+            </div>
+
         </article>
 
     </section>

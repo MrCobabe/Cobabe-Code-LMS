@@ -15,7 +15,9 @@
     </title>
 
     <style>
-        * { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+        }
 
         body {
             margin: 0;
@@ -89,6 +91,19 @@
             padding: 12px 16px;
             font-weight: bold;
             font-size: 14px;
+        }
+
+        .console-heading {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .console-run-button {
+            padding: 8px 16px;
+            font-size: 13px;
         }
 
         .instructions {
@@ -194,6 +209,7 @@
     </h1>
 
     <div class="actions">
+
         <button id="runButton"
                 type="button"
                 onclick="runJava()"
@@ -211,15 +227,16 @@
         <a class="back" th:href="@{/student}">
             Dashboard
         </a>
+
     </div>
 </header>
 
 <main class="workspace">
 
-    <!-- Teacher feedback, shown after grading -->
+    <!-- TEACHER FEEDBACK -->
 
-    <!-- Teacher Feedback -->
-    <section class="panel" th:if="${gradedSubmission != null}">
+    <section class="panel"
+             th:if="${gradedSubmission != null}">
 
         <div class="panel-heading">
             Teacher Feedback
@@ -231,10 +248,14 @@
                 <span class="feedback-label">Grade:</span>
 
                 <span class="feedback-score">
-                <span th:text="${gradedSubmission.grade}">100</span>
-                /
-                <span th:text="${assignment.maxPoints}">100</span>
-            </span>
+                    <span th:text="${gradedSubmission.grade}">
+                        100
+                    </span>
+                    /
+                    <span th:text="${assignment.maxPoints}">
+                        100
+                    </span>
+                </span>
             </div>
 
             <div class="feedback-comments-label">
@@ -245,8 +266,7 @@
                  th:if="${gradedSubmission.feedback != null
                      and !#strings.isEmpty(gradedSubmission.feedback)}"
                  th:text="${gradedSubmission.feedback}">
-                Great work! Your program produces the correct output,
-                and your code is organized well.
+                Great work!
             </div>
 
             <div class="feedback-empty"
@@ -256,11 +276,12 @@
             </div>
 
         </div>
-
     </section>
 
+    <!-- ASSIGNMENT INSTRUCTIONS -->
 
     <section class="panel">
+
         <div class="panel-heading">
             Assignment Instructions
         </div>
@@ -269,12 +290,18 @@
              th:text="${assignment.description}">
             Assignment instructions
         </div>
+
     </section>
 
+    <!-- JAVA EDITOR -->
+
     <section class="panel">
+
         <div class="panel-heading"
-             style="display:flex; justify-content:space-between;
-            align-items:center; gap:12px;">
+             style="display:flex;
+                    justify-content:space-between;
+                    align-items:center;
+                    gap:12px;">
 
             <span>Main.java</span>
 
@@ -282,28 +309,53 @@
                   class="hint"
                   role="status"
                   aria-live="polite">
-        Loading draft...
-    </span>
+                Loading draft...
+            </span>
+
         </div>
 
         <div id="editor"></div>
+
     </section>
 
+    <!-- PROGRAM INPUT -->
+
     <section class="panel">
-        <div class="panel-heading">Program Input</div>
+
+        <div class="panel-heading">
+            Program Input
+        </div>
 
         <textarea id="programInput"
                   placeholder="Enter Scanner input here, one line at a time."></textarea>
+
     </section>
 
+    <!-- CONSOLE OUTPUT WITH RUN BUTTON -->
+
     <section class="panel">
-        <div class="panel-heading">Console Output</div>
+
+        <div class="panel-heading console-heading">
+
+            <span>Console Output</span>
+
+            <button id="consoleRunButton"
+                    class="console-run-button"
+                    type="button"
+                    onclick="runJava()"
+                    disabled>
+                ▶ Run
+            </button>
+
+        </div>
 
         <pre id="consoleOutput">Click Run to execute your program.</pre>
+
     </section>
 
     <p class="hint">
-        Run your code to test it. Submit Assignment when you are ready.
+        Run your code to test it.
+        Submit Assignment when you are ready.
     </p>
 
     <p class="warning">
@@ -311,7 +363,8 @@
         for use by students.
     </p>
 
-    <!-- Preserve the existing assignment submission endpoint. -->
+    <!-- ASSIGNMENT SUBMISSION FORM -->
+
     <form id="submissionForm"
           th:action="@{/assignment/{id}/submit(id=${assignment.id})}"
           method="post">
@@ -323,9 +376,12 @@
         <input type="hidden"
                name="code"
                id="submissionCode">
+
     </form>
 
 </main>
+
+<!-- MONACO EDITOR -->
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js"></script>
 
@@ -363,15 +419,21 @@
     let saveTimer = null;
     let saving = false;
     let savedCode = null;
+    let running = false;
 
     const runButton =
         document.getElementById("runButton");
+
+    const consoleRunButton =
+        document.getElementById("consoleRunButton");
 
     const submitButton =
         document.getElementById("submitButton");
 
     const saveStatus =
         document.getElementById("saveStatus");
+
+    // CSRF HEADERS
 
     function csrfHeaders() {
 
@@ -391,8 +453,20 @@
         saveStatus.textContent = message;
     }
 
-    // Load a saved draft before creating Monaco.
-    // This prevents starter code from overwriting saved work.
+    // KEEP BOTH RUN BUTTONS SYNCHRONIZED
+
+    function setRunButtonsState(isRunning) {
+
+        runButton.disabled = isRunning || !editor;
+        consoleRunButton.disabled = isRunning || !editor;
+
+        const label = isRunning ? "Running..." : "▶ Run";
+
+        runButton.textContent = label;
+        consoleRunButton.textContent = label;
+    }
+
+    // LOAD SAVED DRAFT
 
     async function loadDraft() {
 
@@ -403,15 +477,14 @@
 
         if (!response.ok) {
             throw new Error(
-                "Draft loading failed: HTTP " + response.status);
+                "Draft loading failed: HTTP " + response.status
+            );
         }
 
         return await response.json();
     }
 
-    // Save one code snapshot at a time.
-    // Serializing saves prevents older requests from
-    // overwriting newer changes out of order.
+    // SAVE DRAFT
 
     async function saveDraft() {
 
@@ -442,7 +515,8 @@
 
             if (!response.ok) {
                 throw new Error(
-                    "HTTP " + response.status);
+                    "HTTP " + response.status
+                );
             }
 
             savedCode = code;
@@ -450,19 +524,23 @@
             if (editor.getValue() === savedCode) {
                 setSaveStatus("Saved");
             } else {
+
                 setSaveStatus("Unsaved changes");
 
                 saveTimer = setTimeout(
-                    saveDraft, 300);
+                    saveDraft, 300
+                );
             }
 
         } catch (error) {
 
             console.error("Draft save error:", error);
+
             setSaveStatus("Save failed — retrying");
 
             saveTimer = setTimeout(
-                saveDraft, 5000);
+                saveDraft, 5000
+            );
 
         } finally {
             saving = false;
@@ -476,10 +554,11 @@
         setSaveStatus("Unsaved changes");
 
         saveTimer = setTimeout(
-            saveDraft, 1500);
+            saveDraft, 1500
+        );
     }
 
-    // Initialize Monaco after retrieving the draft.
+    // INITIALIZE MONACO
 
     require.config({
         paths: {
@@ -510,7 +589,8 @@
                 console.error("Draft load error:", error);
 
                 setSaveStatus(
-                    "Could not load draft — refresh to retry");
+                    "Could not load draft — refresh to retry"
+                );
 
                 return;
             }
@@ -531,9 +611,13 @@
             );
 
             editor.onDidChangeModelContent(
-                scheduleSave);
+                scheduleSave
+            );
 
-            runButton.disabled = false;
+            // ENABLE BOTH RUN BUTTONS
+
+            setRunButtonsState(false);
+
             submitButton.disabled = false;
 
             setSaveStatus(
@@ -544,7 +628,7 @@
         }
     );
 
-    // Run Java using the existing runner.
+    // RUN JAVA USING EXISTING RUNNER
 
     async function runJava() {
 
@@ -552,13 +636,23 @@
             document.getElementById("consoleOutput");
 
         if (!editor) {
-            output.textContent = "Editor is still loading.";
+            output.textContent =
+                "Editor is still loading.";
             return;
         }
 
-        runButton.disabled = true;
-        runButton.textContent = "Running...";
-        output.textContent = "Compiling and running...";
+        // PREVENT MULTIPLE SIMULTANEOUS RUNS
+
+        if (running) {
+            return;
+        }
+
+        running = true;
+
+        setRunButtonsState(true);
+
+        output.textContent =
+            "Compiling and running...";
 
         try {
 
@@ -596,13 +690,15 @@
 
         } finally {
 
-            runButton.disabled = false;
-            runButton.textContent = "▶ Run";
+            running = false;
+
+            // RESTORE BOTH RUN BUTTONS
+
+            setRunButtonsState(false);
         }
     }
 
-    // Submit current Monaco code through the
-    // existing assignment submission form.
+    // SUBMIT ASSIGNMENT
 
     function submitAssignment() {
 
@@ -613,7 +709,9 @@
         const code = editor.getValue();
 
         if (!code.trim()) {
-            alert("Please write some Java code before submitting.");
+            alert(
+                "Please write some Java code before submitting."
+            );
             return;
         }
 
@@ -627,24 +725,27 @@
             code;
 
         submitting = true;
+
         submitButton.disabled = true;
         submitButton.textContent = "Submitting...";
 
         document.getElementById("submissionForm").submit();
     }
 
-    // Warn if the student tries to leave while
-    // the latest changes have not been saved.
+    // WARN ABOUT UNSAVED CHANGES
 
-    window.addEventListener("beforeunload", function (event) {
+    window.addEventListener(
+        "beforeunload",
+        function (event) {
 
-        if (editor &&
-            editor.getValue() !== savedCode) {
+            if (editor &&
+                editor.getValue() !== savedCode) {
 
-            event.preventDefault();
-            event.returnValue = "";
+                event.preventDefault();
+                event.returnValue = "";
+            }
         }
-    });
+    );
 
 </script>
 

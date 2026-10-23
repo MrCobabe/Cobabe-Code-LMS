@@ -3,28 +3,86 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
+
     <title>Cobabe Code LMS - Login</title>
-    <link rel="stylesheet" href="/style.css">
+
+    <link rel="stylesheet" th:href="@{/style.css}">
+
+    <style>
+        .showcase-section {
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid #475569;
+            text-align: center;
+        }
+
+        .showcase-section h2 {
+            margin-bottom: 10px;
+        }
+
+        .showcase-section p {
+            margin-bottom: 20px;
+            color: #94a3b8;
+        }
+
+        .showcase-button {
+            display: inline-block;
+            padding: 13px 24px;
+            background: #fb923c;
+            color: #111827;
+            border-radius: 8px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: background 0.2s ease,
+            transform 0.2s ease;
+        }
+
+        .showcase-button:hover {
+            background: #fdba74;
+            transform: translateY(-2px);
+        }
+
+        .showcase-note {
+            display: block;
+            margin-top: 12px;
+            color: #94a3b8;
+            font-size: 0.85rem;
+        }
+    </style>
 </head>
+
 <body>
+
 <main class="center">
+
     <h1>Cobabe Code LMS</h1>
-    <p>Write, run, and submit Java code from your browser.</p>
+
+    <p>
+        Write, run, and submit Java code
+        from your browser.
+    </p>
 
     <h2>Sign In</h2>
 
-    <p th:if="${param.error}" style="color: #e74c3c;">
+    <p th:if="${param.error}"
+       style="color: #e74c3c;">
         Invalid username or password.
     </p>
 
-    <p th:if="${param.logout}" style="color: green;">
+    <p th:if="${param.logout}"
+       style="color: green;">
         You have been logged out.
     </p>
 
     <form th:action="@{/login}" method="post">
+
         <div>
-            <label for="username">Username</label>
+            <label for="username">
+                Username
+            </label>
+
             <input type="text"
                    id="username"
                    name="username"
@@ -34,7 +92,10 @@
         </div>
 
         <div>
-            <label for="password">Password</label>
+            <label for="password">
+                Password
+            </label>
+
             <input type="password"
                    id="password"
                    name="password"
@@ -46,14 +107,44 @@
         <button class="button" type="submit">
             Sign In
         </button>
-        <div style="text-align: center; margin-top: 15px;">
+
+        <div style="text-align: center;
+                    margin-top: 15px;">
+
             <a th:href="@{/teacher/forgot-password}"
-               style="color: #fb923c; text-decoration: none;">
+               style="color: #fb923c;
+                      text-decoration: none;">
                 Forgot Password?
             </a>
+
         </div>
+
     </form>
 
+    <!-- PUBLIC STUDENT PROJECT SHOWCASE -->
+
+    <section class="showcase-section">
+
+        <h2>Explore Our Projects</h2>
+
+        <p>
+            Discover Java applications, games,
+            and other projects created by
+            our computer science students.
+        </p>
+
+        <a th:href="@{/showcase}"
+           class="showcase-button">
+            Explore Student Projects →
+        </a>
+
+        <span class="showcase-note">
+            Open to everyone — no login required
+        </span>
+
+    </section>
+
 </main>
+
 </body>
 </html>

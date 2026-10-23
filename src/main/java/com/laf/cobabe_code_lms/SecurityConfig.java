@@ -38,9 +38,18 @@ public class SecurityConfig {
             TeacherSetupFilter teacherSetupFilter) throws Exception {
 
         http.authorizeHttpRequests(auth -> auth
+                        // Public pages and static resources
                         .requestMatchers(
-                                "/", "/login", "/style.css",
-                                "/css/**", "/js/**", "/images/**"
+                                "/",
+                                "/login",
+                                "/style.css",
+                                "/css/**",
+                                "/js/**",
+                                "/images/**",
+
+                                // Public student project showcase
+                                "/showcase",
+                                "/showcase/**"
                         ).permitAll()
 
 // Allow verification links without requiring login.

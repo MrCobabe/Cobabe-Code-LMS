@@ -91,3 +91,15 @@ th, td {
     padding: 12px;
     text-align: left
 }
+
+select {
+    display: block;
+    width: 100%;
+    background: #07101e;
+    color: #f8fafc;
+    border: 1px solid #42546e;
+    border-radius: 6px;
+    padding: 12px;
+    margin: 10px 0;
+    font: inherit;
+}

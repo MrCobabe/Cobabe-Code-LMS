@@ -92,6 +92,10 @@
             color: white;
         }
 
+        .danger:hover {
+            background: #b91c1c;
+        }
+
         .class-row {
             display: flex;
             align-items: center;
@@ -128,6 +132,12 @@
 
         .error {
             background: #7f1d1d;
+        }
+
+        .delete-warning {
+            color: #fca5a5;
+            font-size: 0.85rem;
+            margin-top: 6px;
         }
 
         @media (max-width: 750px) {
@@ -226,12 +236,19 @@
                     </span>
                     students
                 </p>
+
+                <p class="delete-warning">
+                    Deleting this class permanently removes
+                    its students and their saved work.
+                </p>
             </div>
 
             <div class="class-actions">
                 <form th:action="@{/teacher/classes/{id}/delete(id=${cls.id})}"
                       method="post"
-                      onsubmit="return confirm('Delete this class?');">
+                      th:attr="data-class-name=${cls.name},
+                               data-student-count=${studentCounts[cls.id]}"
+                      onsubmit="return confirmClassDeletion(this);">
 
                     <button type="submit" class="danger">
                         Delete
@@ -242,5 +259,32 @@
     </section>
 
 </main>
+
+<script>
+    function confirmClassDeletion(form) {
+
+        const className = form.dataset.className;
+        const studentCount = form.dataset.studentCount;
+
+        const message =
+            'WARNING: PERMANENT DELETION\n\n' +
+            'Class: ' + className + '\n' +
+            'Students: ' + studentCount + '\n\n' +
+            'Deleting this class will permanently remove:\n\n' +
+            '• All student accounts in this class\n' +
+            '• Their assignment submissions and grades\n' +
+            '• Their teacher feedback\n' +
+            '• Their saved assignment drafts\n' +
+            '• Their sandbox programs\n' +
+            '• Assignments used only by this class\n\n' +
+            'Assignments shared with other classes ' +
+            'will be preserved.\n\n' +
+            'THIS ACTION CANNOT BE UNDONE.\n\n' +
+            'Are you sure you want to continue?';
+
+        return window.confirm(message);
+    }
+</script>
+
 </body>
 </html>

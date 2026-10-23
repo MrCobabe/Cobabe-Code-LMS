@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.text.Normalizer;
 import java.util.*;
 
 @Controller
@@ -194,31 +195,181 @@ public class StudentManagementController {
         String csv = new String(
                 file.getBytes(), StandardCharsets.UTF_8);
 
+        // Remove the optional Excel UTF-8 BOM.
+        if (csv.startsWith("\uFEFF")) {
+            csv = csv.substring(1);
+        }
+
         List<String> credentials = new ArrayList<>();
         int imported = 0;
+        int skipped = 0;
 
         String[] lines = csv.split("\\R");
 
-        for (int i = 0; i < lines.length; i++) {
-            String line = lines[i].trim();
-            if (line.isBlank()) continue;
+        // Detect the CSV format using the header.
+        // Supported:
+        //   Name,Username
+        //   Name
+        //   Name,
+        boolean rosterFormat = false;
+        boolean formatDetected = false;
 
-            String[] columns = line.split(",", -1);
-            if (columns.length != 2) continue;
+        Set<String> usedUsernames = new HashSet<>();
 
-            String name = columns[0].trim();
-            String username = columns[1].trim()
-                    .toLowerCase(Locale.ROOT);
+        // Include all existing usernames so generated
+        // usernames cannot collide with existing accounts.
+        for (Student existing : students.findAll()) {
+            if (existing.username != null) {
+                usedUsernames.add(
+                        existing.username.toLowerCase(Locale.ROOT)
+                );
+            }
+        }
 
-            if (i == 0 && name.equalsIgnoreCase("name")
-                    && username.equalsIgnoreCase("username")) {
+        usedUsernames.add("teacher");
+
+        for (String rawLine : lines) {
+
+            if (rawLine.isBlank()) {
                 continue;
             }
 
-            if (name.isBlank() || name.length() > 120 ||
+            List<String> columns = parseCsvLine(rawLine);
+
+            if (columns.isEmpty()) {
+                continue;
+            }
+
+            // Detect the file format from its first
+            // nonempty row.
+            if (!formatDetected) {
+
+                formatDetected = true;
+
+                String first = columns.get(0).trim();
+
+                if (first.equalsIgnoreCase("Name")) {
+
+                    if (columns.size() > 1 &&
+                            columns.get(1).trim()
+                                    .equalsIgnoreCase("Username")) {
+
+                        rosterFormat = false;
+
+                    } else {
+
+                        rosterFormat = true;
+                    }
+
+                    // Skip the header.
+                    continue;
+                }
+
+                // Headerless original two-column files
+                // remain supported.
+                rosterFormat = false;
+            }
+
+            String name;
+            String username;
+
+            if (rosterFormat) {
+
+                if (columns.get(0).isBlank()) {
+                    skipped++;
+                    continue;
+                }
+
+                // A roster name can be quoted:
+                //   "Beutler, Dax"
+                //
+                // Or split into two CSV fields:
+                //   Beutler,Dax
+                //
+                // An extra empty trailing field is ignored.
+
+                String rawName = columns.get(0).trim();
+
+                if (!rawName.contains(",") &&
+                        columns.size() > 1 &&
+                        !columns.get(1).isBlank()) {
+
+                    rawName += ", " + columns.get(1).trim();
+                }
+
+                int comma = rawName.indexOf(',');
+
+                if (comma < 1 ||
+                        comma >= rawName.length() - 1) {
+
+                    skipped++;
+                    continue;
+                }
+
+                String lastName =
+                        rawName.substring(0, comma).trim();
+
+                String firstName =
+                        rawName.substring(comma + 1).trim();
+
+                if (firstName.isBlank() ||
+                        lastName.isBlank()) {
+
+                    skipped++;
+                    continue;
+                }
+
+                name = firstName + " " + lastName;
+
+                String firstPart = usernamePart(firstName);
+                String lastPart = usernamePart(lastName);
+
+                if (firstPart.isBlank() ||
+                        lastPart.isBlank()) {
+
+                    skipped++;
+                    continue;
+                }
+
+                String baseUsername =
+                        firstPart + "." + lastPart;
+
+                if (baseUsername.length() > 40) {
+                    baseUsername =
+                            baseUsername.substring(0, 40);
+                }
+
+                username = uniqueUsername(
+                        baseUsername, usedUsernames
+                );
+
+                if (username == null) {
+                    skipped++;
+                    continue;
+                }
+
+            } else {
+
+                // Preserve the original CSV format:
+                // name,username
+
+                if (columns.size() != 2) {
+                    skipped++;
+                    continue;
+                }
+
+                name = columns.get(0).trim();
+
+                username = columns.get(1).trim()
+                        .toLowerCase(Locale.ROOT);
+            }
+
+            if (name.isBlank() ||
+                    name.length() > 120 ||
                     !username.matches("[a-z0-9._-]{3,40}") ||
-                    username.equals("teacher") ||
-                    students.findByUsername(username).isPresent()) {
+                    usedUsernames.contains(username)) {
+
+                skipped++;
                 continue;
             }
 
@@ -234,16 +385,130 @@ public class StudentManagementController {
 
             students.save(student);
 
-            credentials.add(username + " : " + password);
+            usedUsernames.add(username);
+
+            credentials.add(
+                    username + " : " + password
+            );
+
             imported++;
         }
 
         redirect.addFlashAttribute(
-                "success", imported + " students imported.");
+                "success",
+                imported + " students imported. " +
+                        skipped + " rows skipped."
+        );
+
         redirect.addFlashAttribute(
-                "credentials", credentials);
+                "credentials", credentials
+        );
 
         return "redirect:/teacher/students";
+    }
+
+    // Parse one CSV row, respecting quotation marks.
+    //
+    // Example:
+    // "Beutler, Dax",
+    //
+    // Becomes:
+    // ["Beutler, Dax", ""]
+    private List<String> parseCsvLine(String line) {
+
+        List<String> result = new ArrayList<>();
+        StringBuilder field = new StringBuilder();
+
+        boolean inQuotes = false;
+
+        for (int i = 0; i < line.length(); i++) {
+
+            char ch = line.charAt(i);
+
+            if (ch == '"') {
+
+                if (inQuotes &&
+                        i + 1 < line.length() &&
+                        line.charAt(i + 1) == '"') {
+
+                    field.append('"');
+                    i++;
+
+                } else {
+
+                    inQuotes = !inQuotes;
+                }
+
+            } else if (ch == ',' && !inQuotes) {
+
+                result.add(field.toString().trim());
+                field.setLength(0);
+
+            } else {
+
+                field.append(ch);
+            }
+        }
+
+        result.add(field.toString().trim());
+
+        return result;
+    }
+
+    // Convert name portions to username-safe text.
+    //
+    // Examples:
+    // José -> jose
+    // O'Neil -> oneil
+    // Mary Ann -> maryann
+    private String usernamePart(String value) {
+
+        String normalized = Normalizer.normalize(
+                value,
+                Normalizer.Form.NFD
+        );
+
+        normalized = normalized.replaceAll(
+                "\\p{M}+", ""
+        );
+
+        return normalized
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]", "");
+    }
+
+    // Generate a unique username without changing
+    // any existing student account.
+    //
+    // dax.beutler
+    // dax.beutler2
+    // dax.beutler3
+    private String uniqueUsername(
+            String base,
+            Set<String> usedUsernames) {
+
+        if (!usedUsernames.contains(base)) {
+            return base;
+        }
+
+        for (int number = 2; number < 10000; number++) {
+
+            String suffix = String.valueOf(number);
+
+            int allowedLength = 40 - suffix.length();
+
+            String prefix = base.length() > allowedLength
+                    ? base.substring(0, allowedLength)
+                    : base;
+
+            String candidate = prefix + suffix;
+
+            if (!usedUsernames.contains(candidate)) {
+                return candidate;
+            }
+        }
+
+        return null;
     }
 
     private String newPassword() {

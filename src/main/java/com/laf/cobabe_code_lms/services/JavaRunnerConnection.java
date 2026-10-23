@@ -129,7 +129,7 @@ public class JavaRunnerConnection {
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(runnerUrl + "/run"))
-                    .timeout(Duration.ofSeconds(15))
+                    .timeout(Duration.ofSeconds(60))
                     .header("X-Runner-Secret", runnerSecret)
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(jsonBody))

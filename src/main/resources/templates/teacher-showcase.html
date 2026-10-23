@@ -1,0 +1,595 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
+
+    <title>Showcase Manager | Cobabe Code</title>
+    <link rel="stylesheet" th:href="@{/style.css}">
+
+    <style>
+        .showcase-admin-heading {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .showcase-admin-heading h1 {
+            margin-bottom: 5px;
+        }
+
+        .muted {
+            color: #94a3b8;
+        }
+
+        .showcase-form-grid {
+            display: grid;
+            grid-template-columns:
+                repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .showcase-form label {
+            display: block;
+            margin-top: 12px;
+            font-weight: 600;
+        }
+
+        .showcase-form textarea {
+            min-height: 110px;
+            resize: vertical;
+        }
+
+        .showcase-form select,
+        .showcase-form input[type="file"] {
+            display: block;
+            width: 100%;
+            background: #07101e;
+            color: #f8fafc;
+            border: 1px solid #42546e;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 10px 0;
+            font: inherit;
+        }
+
+        .upload-grid {
+            display: grid;
+            grid-template-columns:
+                repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-top: 18px;
+        }
+
+        .upload-box {
+            border: 1px dashed #64748b;
+            background: #0b1220;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .upload-box label {
+            margin-top: 0;
+        }
+
+        .upload-box p {
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+
+        .project-admin-card {
+            background: #0b1220;
+            border: 1px solid #30445e;
+            border-radius: 8px;
+            padding: 18px;
+            margin: 15px 0;
+        }
+
+        .project-admin-card h3 {
+            margin-top: 0;
+        }
+
+        .project-admin-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
+        .project-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .project-actions form {
+            margin: 0;
+        }
+
+        .project-actions button {
+            margin: 0;
+        }
+
+        .status {
+            display: inline-block;
+            border-radius: 5px;
+            padding: 4px 9px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-published {
+            background: #14532d;
+            color: #bbf7d0;
+        }
+
+        .status-draft {
+            background: #78350f;
+            color: #fde68a;
+        }
+
+        .danger-button {
+            background: #b91c1c;
+        }
+
+        .success-message {
+            color: #86efac;
+        }
+
+        .error-message {
+            color: #fca5a5;
+        }
+
+        .edit-panel {
+            margin-top: 18px;
+            padding-top: 12px;
+            border-top: 1px solid #30445e;
+        }
+
+        .edit-panel summary {
+            color: #fb923c;
+            cursor: pointer;
+            font-weight: 600;
+            padding: 8px 0;
+        }
+
+        .credit-line {
+            color: #cbd5e1;
+            font-size: 0.95rem;
+        }
+
+        .form-actions {
+            margin-top: 15px;
+        }
+
+        .file-hint {
+            color: #94a3b8;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <strong>Cobabe Code — Showcase Manager</strong>
+
+    <nav>
+        <a th:href="@{/teacher}">Teacher Dashboard</a>
+        &nbsp; | &nbsp;
+        <a th:href="@{/showcase}"
+           target="_blank"
+           rel="noopener noreferrer">
+            View Public Showcase
+        </a>
+    </nav>
+</header>
+
+<main>
+
+    <div class="showcase-admin-heading">
+        <div>
+            <h1>Project Showcase Manager</h1>
+            <p class="muted">
+                Manage student projects displayed on cobabecs.com.
+            </p>
+        </div>
+    </div>
+
+    <p th:if="${param.added}" class="success-message">
+        Project created successfully.
+    </p>
+
+    <p th:if="${param.updated}" class="success-message">
+        Project updated successfully.
+    </p>
+
+    <p th:if="${param.invalid}" class="error-message">
+        Please check the project information.
+    </p>
+
+    <p th:if="${uploadError}" class="error-message"
+       th:text="${uploadError}">
+        Upload failed.
+    </p>
+
+    <!-- ADD PROJECT -->
+
+    <section>
+
+        <h2>Add New Project</h2>
+
+        <p class="muted">
+            New projects are saved as drafts until you publish them.
+        </p>
+
+        <form class="showcase-form"
+              th:action="@{/teacher/showcase/add}"
+              method="post"
+              enctype="multipart/form-data">
+
+            <div class="showcase-form-grid">
+
+                <div>
+                    <label for="title">Project Title</label>
+                    <input id="title"
+                           name="title"
+                           type="text"
+                           maxlength="160"
+                           placeholder="Dungeon Explorer"
+                           required>
+                </div>
+
+                <div>
+                    <label for="schoolYear">School Year</label>
+
+                    <select id="schoolYear"
+                            name="schoolYear"
+                            required>
+
+                        <option th:each="year : ${schoolYears}"
+                                th:value="${year}"
+                                th:text="${year}">
+                        </option>
+
+                    </select>
+                </div>
+
+                <div>
+                    <label for="projectType">Project Type</label>
+
+                    <select id="projectType"
+                            name="projectType">
+
+                        <option value="STUDENT">
+                            Student Project
+                        </option>
+
+                        <option value="CLASS">
+                            Class Project
+                        </option>
+
+                    </select>
+                </div>
+
+                <div>
+                    <label for="displayOrder">
+                        Display Order
+                    </label>
+
+                    <input id="displayOrder"
+                           name="displayOrder"
+                           type="number"
+                           value="0">
+                </div>
+
+            </div>
+
+            <label for="creatorCredit">
+                Student or Class Credit
+            </label>
+
+            <input id="creatorCredit"
+                   name="creatorCredit"
+                   type="text"
+                   maxlength="500"
+                   placeholder="Student name(s) or Computer Science — Period 3">
+
+            <label for="description">
+                Project Description
+            </label>
+
+            <textarea id="description"
+                      name="description"
+                      maxlength="12000"
+                      placeholder="Describe what the students created..."></textarea>
+
+            <div class="upload-grid">
+
+                <div class="upload-box">
+                    <label for="screenshot">
+                        Project Screenshot
+                    </label>
+
+                    <input id="screenshot"
+                           name="screenshot"
+                           type="file"
+                           accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp">
+
+                    <p>
+                        PNG, JPG, or WebP. Maximum 10 MB.
+                    </p>
+                </div>
+
+                <div class="upload-box">
+                    <label for="jarFile">
+                        Executable JAR
+                    </label>
+
+                    <input id="jarFile"
+                           name="jarFile"
+                           type="file"
+                           accept=".jar,application/java-archive">
+
+                    <p>
+                        Java application JAR. Maximum 500 MB.
+                    </p>
+                </div>
+
+            </div>
+
+            <div class="form-actions">
+                <button type="submit">
+                    Save Project as Draft
+                </button>
+            </div>
+
+        </form>
+
+    </section>
+
+    <!-- EXISTING PROJECTS -->
+
+    <section>
+
+        <h2>Existing Projects</h2>
+
+        <p th:if="${#lists.isEmpty(projects)}"
+           class="muted">
+            No projects have been added yet.
+        </p>
+
+        <article class="project-admin-card"
+                 th:each="project : ${projects}">
+
+            <h3 th:text="${project.title}">
+                Project Title
+            </h3>
+
+            <div class="project-admin-meta">
+
+                <span th:text="${project.schoolYear}">
+                    2026-2027
+                </span>
+
+                <span th:text="|Order: ${project.displayOrder}|">
+                    Order: 0
+                </span>
+
+                <span th:text="${project.projectType == 'STUDENT'
+                    ? 'Student Project' : 'Class Project'}">
+                    Student Project
+                </span>
+
+                <span class="status status-published"
+                      th:if="${project.published}">
+                    Published
+                </span>
+
+                <span class="status status-draft"
+                      th:unless="${project.published}">
+                    Draft
+                </span>
+
+
+                <span class="status status-published"
+                      th:if="${hasImages[project.id]}">
+    Screenshot Attached
+</span>
+
+                <span class="status status-draft"
+                      th:unless="${hasImages[project.id]}">
+    No Screenshot
+</span>
+
+                <span class="status status-published"
+                      th:if="${hasJars[project.id]}">
+    JAR Attached
+</span>
+
+                <span class="status status-draft"
+                      th:unless="${hasJars[project.id]}">
+    No JAR
+</span>
+
+
+            </div>
+
+            <p class="credit-line"
+               th:if="${project.creatorCredit != null
+                    and !#strings.isEmpty(project.creatorCredit)}">
+                Created by:
+                <span th:text="${project.creatorCredit}">
+                    Student
+                </span>
+            </p>
+
+            <p th:text="${project.description}">
+                Project description
+            </p>
+
+            <!-- EDIT PROJECT -->
+
+            <details class="edit-panel">
+
+                <summary>Edit Project and Files</summary>
+
+                <form class="showcase-form"
+                      th:action="@{/teacher/showcase/{id}/edit(id=${project.id})}"
+                      method="post"
+                      enctype="multipart/form-data">
+
+                    <div class="showcase-form-grid">
+
+                        <div>
+                            <label>Project Title</label>
+
+                            <input name="title"
+                                   type="text"
+                                   maxlength="160"
+                                   th:value="${project.title}"
+                                   required>
+                        </div>
+
+                        <div>
+                            <label>School Year</label>
+
+                            <select name="schoolYear" required>
+
+                                <option th:each="year : ${schoolYears}"
+                                        th:value="${year}"
+                                        th:text="${year}"
+                                        th:selected="${year == project.schoolYear}">
+                                </option>
+
+                            </select>
+                        </div>
+
+                        <div>
+                            <label>Project Type</label>
+
+                            <select name="projectType">
+
+                                <option value="STUDENT"
+                                        th:selected="${project.projectType == 'STUDENT'}">
+                                    Student Project
+                                </option>
+
+                                <option value="CLASS"
+                                        th:selected="${project.projectType != 'STUDENT'}">
+                                    Class Project
+                                </option>
+
+                            </select>
+                        </div>
+
+                        <div>
+                            <label>Display Order</label>
+
+                            <input name="displayOrder"
+                                   type="number"
+                                   th:value="${project.displayOrder}">
+                        </div>
+
+                    </div>
+
+                    <label>Student or Class Credit</label>
+
+                    <input name="creatorCredit"
+                           type="text"
+                           maxlength="500"
+                           th:value="${project.creatorCredit}">
+
+                    <label>Project Description</label>
+
+                    <textarea name="description"
+                              maxlength="12000"
+                              th:text="${project.description}"></textarea>
+
+                    <div class="upload-grid">
+
+                        <div class="upload-box">
+                            <label>Replace Screenshot</label>
+
+                            <input name="screenshot"
+                                   type="file"
+                                   accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp">
+
+                            <p>
+                                Leave empty to keep the existing screenshot.
+                            </p>
+                        </div>
+
+                        <div class="upload-box">
+                            <label>Replace JAR</label>
+
+                            <input name="jarFile"
+                                   type="file"
+                                   accept=".jar,application/java-archive">
+
+                            <p>
+                                Leave empty to keep the existing JAR.
+                            </p>
+                        </div>
+
+                    </div>
+
+                    <button type="submit">
+                        Save Changes
+                    </button>
+
+                </form>
+
+            </details>
+
+            <!-- PUBLISH / DELETE -->
+
+            <div class="project-actions">
+
+                <form th:if="${!project.published}"
+                      th:action="@{/teacher/showcase/{id}/publish(id=${project.id})}"
+                      method="post">
+
+                    <button type="submit">
+                        Publish
+                    </button>
+
+                </form>
+
+                <form th:if="${project.published}"
+                      th:action="@{/teacher/showcase/{id}/unpublish(id=${project.id})}"
+                      method="post">
+
+                    <button type="submit">
+                        Unpublish
+                    </button>
+
+                </form>
+
+                <form th:action="@{/teacher/showcase/{id}/delete(id=${project.id})}"
+                      method="post"
+                      onsubmit="return confirm('Delete this project and its uploaded files?');">
+
+                    <button type="submit"
+                            class="danger-button">
+                        Delete
+                    </button>
+
+                </form>
+
+            </div>
+
+        </article>
+
+    </section>
+
+</main>
+
+</body>
+</html>
