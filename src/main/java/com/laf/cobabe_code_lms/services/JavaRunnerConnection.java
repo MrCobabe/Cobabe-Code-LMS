@@ -3,7 +3,7 @@ package com.laf.cobabe_code_lms.services;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
+import java.util.Map;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -144,6 +144,51 @@ public class JavaRunnerConnection {
 
         } catch (Exception e) {
             return "{\"error\":" +
+                    quoteJson(e.getMessage()) + "}";
+        }
+    }
+
+    public String testMultiFileJsonRequest(
+            Map<String, String> files,
+            String input) {
+
+        if (runnerSecret == null || runnerSecret.isBlank()) {
+            return "{\"success\":false,\"error\":\"Runner secret is not configured.\"}";
+        }
+
+        if (files == null || files.isEmpty()) {
+            return "{\"success\":false,\"error\":\"No Java files provided.\"}";
+        }
+
+        try {
+            // Build a JSON request containing all Java files.
+            com.fasterxml.jackson.databind.ObjectMapper mapper =
+                    new com.fasterxml.jackson.databind.ObjectMapper();
+
+            String jsonBody = mapper.writeValueAsString(
+                    Map.of(
+                            "files", files,
+                            "input", input == null ? "" : input
+                    )
+            );
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(runnerUrl + "/run"))
+                    .timeout(Duration.ofSeconds(60))
+                    .header("X-Runner-Secret", runnerSecret)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .build();
+
+            HttpResponse<String> response = client.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofString()
+            );
+
+            return response.body();
+
+        } catch (Exception e) {
+            return "{\"success\":false,\"error\":" +
                     quoteJson(e.getMessage()) + "}";
         }
     }

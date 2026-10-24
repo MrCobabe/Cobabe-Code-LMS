@@ -7,6 +7,11 @@ import com.laf.cobabe_code_lms.repositories.AssignmentDrafts;
 import com.laf.cobabe_code_lms.repositories.Assignments;
 import com.laf.cobabe_code_lms.repositories.Students;
 
+import com.laf.cobabe_code_lms.models.AssignmentDraftSourceFile;
+import com.laf.cobabe_code_lms.repositories.AssignmentDraftSourceFiles;
+
+import java.util.LinkedHashMap;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -23,20 +28,28 @@ import java.util.Objects;
 public class AssignmentDraftController {
 
     private final AssignmentDrafts drafts;
+    private final AssignmentDraftSourceFiles draftSourceFiles;
     private final Assignments assignments;
     private final Students students;
 
+
     public AssignmentDraftController(
-            AssignmentDrafts drafts,
+            AssignmentDrafts drafts, AssignmentDraftSourceFiles draftSourceFiles,
             Assignments assignments,
             Students students) {
 
         this.drafts = drafts;
+        this.draftSourceFiles = draftSourceFiles;
         this.assignments = assignments;
         this.students = students;
     }
 
-    public record SaveRequest(String code) {}
+
+    public record SaveRequest(
+            String code,
+            Map<String, String> files
+    ) {}
+
 
     private record Access(
             Student student,
@@ -83,6 +96,7 @@ public class AssignmentDraftController {
         return new Access(student, assignment);
     }
 
+
     @GetMapping("/{assignmentId}/draft")
     @Transactional(readOnly = true)
     public ResponseEntity<?> load(
@@ -96,15 +110,39 @@ public class AssignmentDraftController {
                 drafts.findByStudent_IdAndAssignment_Id(
                         access.student().id,
                         assignmentId
-                ).map(draft -> Map.of(
-                        "found", true,
-                        "code", draft.code
-                )).orElseGet(() -> Map.of(
+                ).map(draft -> {
+
+                    Map<String, String> files = new LinkedHashMap<>();
+
+                    // Main.java remains in the original draft record.
+                    files.put("Main.java", draft.code);
+
+                    // Load additional Java files.
+                    for (AssignmentDraftSourceFile sourceFile :
+                            draftSourceFiles.findByDraft_IdOrderByFilenameAsc(
+                                    draft.id)) {
+
+                        files.put(
+                                sourceFile.getFilename(),
+                                sourceFile.getCode()
+                        );
+                    }
+
+                    return Map.of(
+                            "found", true,
+                            "code", draft.code,
+                            "files", files
+                    );
+
+                }).orElseGet(() -> Map.of(
                         "found", false,
-                        "code", ""
+                        "code", "",
+                        "files", Map.of()
                 ))
         );
     }
+
+
 
     @PostMapping("/{assignmentId}/draft")
     @Transactional
@@ -116,18 +154,83 @@ public class AssignmentDraftController {
         Access access = checkAccess(
                 assignmentId, authentication);
 
-        if (request == null || request.code() == null) {
+        if (request == null) {
             return ResponseEntity.badRequest()
                     .body(Map.of(
-                            "error", "Code is required."));
+                            "error", "Save request is required."));
         }
 
-        if (request.code().length() > 50000) {
+        // Support both the original single-file format
+        // and the new multi-file format.
+        boolean multiFileSave = request.files() != null;
+
+        Map<String, String> files = new LinkedHashMap<>();
+
+        if (multiFileSave) {
+            files.putAll(request.files());
+        } else {
+            if (request.code() == null) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of(
+                                "error", "Code is required."));
+            }
+
+            files.put("Main.java", request.code());
+        }
+
+        // Main.java must always exist.
+        if (!files.containsKey("Main.java")
+                || files.get("Main.java") == null) {
+
             return ResponseEntity.badRequest()
                     .body(Map.of(
-                            "error", "Code exceeds 50,000 characters."));
+                            "error", "Main.java is required."));
         }
 
+        // Limit the number of Java source files.
+        if (files.size() > 20) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of(
+                            "error", "Maximum of 20 Java files allowed."));
+        }
+
+        // Validate filenames and total source size.
+        long totalBytes = 0;
+
+        for (Map.Entry<String, String> entry : files.entrySet()) {
+
+            String filename = entry.getKey();
+            String code = entry.getValue();
+
+            if (filename == null
+                    || filename.length() > 120
+                    || !filename.matches(
+                    "[A-Za-z_$][A-Za-z0-9_$]*\\.java")) {
+
+                return ResponseEntity.badRequest()
+                        .body(Map.of(
+                                "error", "Invalid Java filename."));
+            }
+
+            if (code == null) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of(
+                                "error", "File code cannot be null."));
+            }
+
+            totalBytes += code.getBytes(
+                    java.nio.charset.StandardCharsets.UTF_8
+            ).length;
+
+            if (totalBytes > 65536) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of(
+                                "error",
+                                "Total Java source exceeds 64 KB."));
+            }
+        }
+
+        // Find or create the student's draft.
         AssignmentDraft draft = drafts
                 .findByStudent_IdAndAssignment_Id(
                         access.student().id,
@@ -140,12 +243,58 @@ public class AssignmentDraftController {
                                 ""
                         ));
 
-        draft.code = request.code();
+        // Keep Main.java in the original draft field.
+        draft.code = files.get("Main.java");
         draft.lastSaved = Instant.now();
 
-        drafts.save(draft);
+        drafts.saveAndFlush(draft);
+
+        // Legacy saves update only Main.java.
+        // They must not erase additional Java files.
+        if (multiFileSave) {
+
+            // Remove files no longer included in the request.
+            for (AssignmentDraftSourceFile existing :
+                    draftSourceFiles.findByDraft_IdOrderByFilenameAsc(
+                            draft.id)) {
+
+                if (!files.containsKey(existing.getFilename())) {
+                    draftSourceFiles.delete(existing);
+                }
+            }
+
+            draftSourceFiles.flush();
+
+            // Create or update all additional files.
+            for (Map.Entry<String, String> entry : files.entrySet()) {
+
+                String filename = entry.getKey();
+
+                if ("Main.java".equals(filename)) {
+                    continue;
+                }
+
+                AssignmentDraftSourceFile sourceFile =
+                        draftSourceFiles
+                                .findByDraft_IdAndFilename(
+                                        draft.id,
+                                        filename
+                                )
+                                .orElseGet(() ->
+                                        new AssignmentDraftSourceFile(
+                                                draft,
+                                                filename,
+                                                ""
+                                        ));
+
+                sourceFile.setCode(entry.getValue());
+
+                draftSourceFiles.save(sourceFile);
+            }
+        }
 
         return ResponseEntity.ok(
                 Map.of("saved", true));
     }
+
 }

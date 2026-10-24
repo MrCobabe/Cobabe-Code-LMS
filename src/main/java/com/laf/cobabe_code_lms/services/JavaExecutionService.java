@@ -3,7 +3,7 @@ package com.laf.cobabe_code_lms.services;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -124,6 +124,148 @@ public class JavaExecutionService {
                         false,
                         "",
                         "Runner communication error: " + response
+                );
+            }
+        });
+    }
+
+    public CompletableFuture<ExecutionResult> runJavaFiles(
+            Map<String, String> files,
+            String programInput) {
+
+        if (!runnerEnabled) {
+            return CompletableFuture.completedFuture(
+                    new ExecutionResult(
+                            false,
+                            "",
+                            "Java execution is not enabled yet."
+                    )
+            );
+        }
+
+        if (files == null || files.isEmpty()
+                || !files.containsKey("Main.java")) {
+            return CompletableFuture.completedFuture(
+                    new ExecutionResult(
+                            false,
+                            "",
+                            "Main.java is required."
+                    )
+            );
+        }
+
+        if (files.size() > 20) {
+            return CompletableFuture.completedFuture(
+                    new ExecutionResult(
+                            false,
+                            "",
+                            "A maximum of 20 Java files is allowed."
+                    )
+            );
+        }
+
+        long totalBytes = 0;
+
+        for (Map.Entry<String, String> entry : files.entrySet()) {
+
+            String filename = entry.getKey();
+            String code = entry.getValue();
+
+            if (filename == null
+                    || filename.length() > 120
+                    || !filename.matches(
+                    "[A-Za-z_$][A-Za-z0-9_$]*\\.java")) {
+
+                return CompletableFuture.completedFuture(
+                        new ExecutionResult(
+                                false,
+                                "",
+                                "Invalid Java filename."
+                        )
+                );
+            }
+
+            if (code == null) {
+                return CompletableFuture.completedFuture(
+                        new ExecutionResult(
+                                false,
+                                "",
+                                "Java source code cannot be null."
+                        )
+                );
+            }
+
+            totalBytes += code.getBytes(
+                    java.nio.charset.StandardCharsets.UTF_8
+            ).length;
+
+            if (totalBytes > 64 * 1024) {
+                return CompletableFuture.completedFuture(
+                        new ExecutionResult(
+                                false,
+                                "",
+                                "Combined Java source code exceeds 64 KB."
+                        )
+                );
+            }
+        }
+
+        if (files.get("Main.java").isBlank()) {
+            return CompletableFuture.completedFuture(
+                    new ExecutionResult(
+                            false,
+                            "",
+                            "Main.java cannot be empty."
+                    )
+            );
+        }
+
+        if (programInput != null
+                && programInput.getBytes(
+                java.nio.charset.StandardCharsets.UTF_8
+        ).length > 8 * 1024) {
+
+            return CompletableFuture.completedFuture(
+                    new ExecutionResult(
+                            false,
+                            "",
+                            "Program input exceeds 8 KB."
+                    )
+            );
+        }
+
+        Map<String, String> validatedFiles =
+                Map.copyOf(files);
+
+        String input =
+                programInput == null ? "" : programInput;
+
+        return runnerManager.submit(() -> {
+
+            String response =
+                    runnerConnection.testMultiFileJsonRequest(
+                            validatedFiles,
+                            input
+                    );
+
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper mapper =
+                        new com.fasterxml.jackson.databind.ObjectMapper();
+
+                com.fasterxml.jackson.databind.JsonNode result =
+                        mapper.readTree(response);
+
+                return new ExecutionResult(
+                        result.path("success").asBoolean(false),
+                        result.path("output").asText(""),
+                        result.path("error").asText("")
+                );
+
+            } catch (Exception e) {
+                return new ExecutionResult(
+                        false,
+                        "",
+                        "Unable to read the Java runner response."
                 );
             }
         });

@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.RejectedExecutionException;
@@ -21,12 +22,31 @@ public class JavaRunController {
 
     public JavaRunController(
             JavaExecutionService executionService) {
+
         this.executionService = executionService;
     }
 
+    // Supports both request formats:
+    //
+    // Single-file:
+    // {
+    //   "code": "...",
+    //   "input": ""
+    // }
+    //
+    // Multi-file:
+    // {
+    //   "files": {
+    //     "Main.java": "...",
+    //     "Player.java": "..."
+    //   },
+    //   "input": ""
+    // }
+
     public record RunRequest(
             String code,
-            String input
+            String input,
+            Map<String, String> files
     ) {}
 
     @PostMapping("/run")
@@ -35,51 +55,97 @@ public class JavaRunController {
             @RequestBody RunRequest request,
             Authentication authentication) {
 
+        // ==========================================
+        // AUTHENTICATION
+        // ==========================================
+
         if (authentication == null ||
                 !authentication.isAuthenticated()) {
+
             return CompletableFuture.completedFuture(
                     ResponseEntity.status(401).build()
             );
         }
 
-        return executionService.testRunnerConnection(
-                        request.code(),
-                        request.input()
-                )
-                .handle((result, exception) -> {
+        if (request == null) {
 
-                    if (exception != null) {
-                        Throwable cause = exception;
+            return CompletableFuture.completedFuture(
+                    ResponseEntity.badRequest().build()
+            );
+        }
 
-                        while (cause instanceof
-                                CompletionException
-                                && cause.getCause() != null) {
-                            cause = cause.getCause();
-                        }
+        // ==========================================
+        // CHOOSE EXECUTION MODE
+        // ==========================================
 
-                        if (cause instanceof
-                                RejectedExecutionException) {
-                            return ResponseEntity.status(429)
-                                    .body(
-                                            new JavaExecutionService.ExecutionResult(
-                                                    false,
-                                                    "",
-                                                    "Runner busy. Try again shortly."
-                                            )
-                                    );
-                        }
+        CompletableFuture<
+                JavaExecutionService.ExecutionResult> execution;
 
-                        return ResponseEntity.status(500)
-                                .body(
-                                        new JavaExecutionService.ExecutionResult(
-                                                false,
-                                                "",
-                                                "Java runner encountered an error."
-                                        )
-                                );
-                    }
+        if (request.files() != null) {
 
-                    return ResponseEntity.ok(result);
-                });
+            // Multi-file execution.
+            //
+            // All Java files are validated and
+            // sent to the external Docker runner.
+
+            execution = executionService.runJavaFiles(
+                    request.files(),
+                    request.input()
+            );
+
+        } else {
+
+            // Legacy single-file execution.
+            //
+            // Preserve the existing behavior for
+            // older Sandbox and assignment pages.
+
+            execution = executionService.testRunnerConnection(
+                    request.code(),
+                    request.input()
+            );
+        }
+
+        // ==========================================
+        // HANDLE EXECUTION RESULT
+        // ==========================================
+
+        return execution.handle((result, exception) -> {
+
+            if (exception != null) {
+
+                Throwable cause = exception;
+
+                while (cause instanceof CompletionException
+                        && cause.getCause() != null) {
+
+                    cause = cause.getCause();
+                }
+
+                if (cause instanceof
+                        RejectedExecutionException) {
+
+                    return ResponseEntity.status(429)
+                            .body(
+                                    new JavaExecutionService.ExecutionResult(
+                                            false,
+                                            "",
+                                            "Runner busy. Try again shortly."
+                                    )
+                            );
+                }
+
+                return ResponseEntity.status(500)
+                        .body(
+                                new JavaExecutionService.ExecutionResult(
+                                        false,
+                                        "",
+                                        "Java runner encountered an error."
+                                )
+                        );
+            }
+
+            return ResponseEntity.ok(result);
+        });
     }
 }

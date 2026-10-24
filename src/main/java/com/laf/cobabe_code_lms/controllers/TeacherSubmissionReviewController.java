@@ -4,7 +4,10 @@ package com.laf.cobabe_code_lms.controllers;
 import com.laf.cobabe_code_lms.models.Submission;
 import com.laf.cobabe_code_lms.repositories.Submissions;
 import com.laf.cobabe_code_lms.services.JavaExecutionService;
-
+import com.laf.cobabe_code_lms.models.SubmissionSourceFile;
+import com.laf.cobabe_code_lms.repositories.SubmissionSourceFiles;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -25,13 +28,15 @@ public class TeacherSubmissionReviewController {
 
     private final Submissions submissions;
     private final JavaExecutionService executionService;
+    private final SubmissionSourceFiles submissionSourceFiles;
 
     public TeacherSubmissionReviewController(
             Submissions submissions,
-            JavaExecutionService executionService) {
+            JavaExecutionService executionService, SubmissionSourceFiles submissionSourceFiles) {
 
         this.submissions = submissions;
         this.executionService = executionService;
+        this.submissionSourceFiles = submissionSourceFiles;
     }
 
     private void requireTeacher(Authentication authentication) {
@@ -48,6 +53,7 @@ public class TeacherSubmissionReviewController {
         }
     }
 
+
     @GetMapping("/{id}")
     @Transactional(readOnly = true)
     public String review(
@@ -63,10 +69,29 @@ public class TeacherSubmissionReviewController {
                                 HttpStatus.NOT_FOUND,
                                 "Submission not found"));
 
+        // Collect all submitted Java files.
+        Map<String, String> sourceFiles = new LinkedHashMap<>();
+
+        // Main.java remains in the original Submission record.
+        sourceFiles.put("Main.java", submission.code);
+
+        // Retrieve additional files from the new table.
+        for (SubmissionSourceFile sourceFile :
+                submissionSourceFiles
+                        .findBySubmission_IdOrderByFilenameAsc(id)) {
+
+            sourceFiles.put(
+                    sourceFile.getFilename(),
+                    sourceFile.getCode()
+            );
+        }
+
         model.addAttribute("submission", submission);
+        model.addAttribute("sourceFiles", sourceFiles);
 
         return "review";
     }
+
 
     @PostMapping("/{id}/grade")
     @Transactional

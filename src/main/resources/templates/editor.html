@@ -3,12 +3,10 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <meta name="_csrf" th:content="${_csrf.token}">
-    <meta name="_csrf_header"
-          th:content="${_csrf.headerName}">
+    <meta name="_csrf_header" th:content="${_csrf.headerName}">
 
     <title th:text="${assignment.title} + ' | Cobabe Code LMS'">
         Java Assignment
@@ -68,7 +66,7 @@
 
         button:disabled {
             opacity: 0.6;
-            cursor: wait;
+            cursor: not-allowed;
         }
 
         .workspace {
@@ -112,9 +110,91 @@
             line-height: 1.5;
         }
 
+        /* MULTI-FILE TOOLBAR */
+
+        .editor-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .file-toolbar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .file-toolbar button {
+            background: #334155;
+            color: #f8fafc;
+            padding: 7px 12px;
+            font-size: 12px;
+        }
+
+        .file-toolbar button:hover:not(:disabled) {
+            background: #475569;
+        }
+
+        .file-tabs {
+            display: flex;
+            align-items: stretch;
+            flex-wrap: wrap;
+            gap: 2px;
+            padding: 8px 10px 0;
+            background: #0b1220;
+            border-bottom: 1px solid #334155;
+        }
+
+        .file-tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #1e293b;
+            color: #cbd5e1;
+            border: 1px solid #334155;
+            border-bottom: none;
+            border-radius: 5px 5px 0 0;
+            padding: 9px 14px;
+            font-size: 13px;
+            font-family: Consolas, monospace;
+            font-weight: normal;
+            max-width: 220px;
+        }
+
+        .file-tab:hover {
+            background: #334155;
+        }
+
+        .file-tab.active {
+            background: #111827;
+            color: #fb923c;
+            border-top: 2px solid #f97316;
+            font-weight: bold;
+        }
+
+        .file-tab-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-count {
+            color: #94a3b8;
+            font-size: 12px;
+            font-weight: normal;
+        }
+
+        /* AUTO-EXPANDING MONACO EDITOR */
+
         #editor {
             height: 440px;
+            min-height: 440px;
+            max-height: 3000px;
             width: 100%;
+            overflow: hidden;
         }
 
         textarea {
@@ -133,18 +213,23 @@
             min-height: 80px;
         }
 
+        /* INDEPENDENTLY SCROLLING CONSOLE */
+
         #consoleOutput {
+            height: 320px;
             min-height: 160px;
             padding: 14px;
             margin: 0;
             color: #86efac;
             white-space: pre-wrap;
             overflow-wrap: anywhere;
+            overflow-y: auto;
+            overflow-x: auto;
             font-family: Consolas, monospace;
             font-size: 14px;
         }
 
-        /* Teacher feedback styling */
+        /* TEACHER FEEDBACK */
 
         .feedback-content {
             padding: 20px 24px;
@@ -198,6 +283,36 @@
             color: #ffb347;
             font-size: 12px;
         }
+
+        .run-warning {
+            padding: 10px 16px;
+            background: #422006;
+            color: #fdba74;
+            border-top: 1px solid #92400e;
+            font-size: 13px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @media (max-width: 600px) {
+            header {
+                padding: 14px;
+            }
+
+            .workspace {
+                padding: 10px;
+            }
+
+            .file-toolbar {
+                width: 100%;
+            }
+
+            .file-toolbar button {
+                flex: 1;
+            }
+        }
     </style>
 </head>
 
@@ -209,7 +324,6 @@
     </h1>
 
     <div class="actions">
-
         <button id="runButton"
                 type="button"
                 onclick="runJava()"
@@ -227,7 +341,6 @@
         <a class="back" th:href="@{/student}">
             Dashboard
         </a>
-
     </div>
 </header>
 
@@ -243,18 +356,13 @@
         </div>
 
         <div class="feedback-content">
-
             <div class="feedback-grade">
                 <span class="feedback-label">Grade:</span>
 
                 <span class="feedback-score">
-                    <span th:text="${gradedSubmission.grade}">
-                        100
-                    </span>
+                    <span th:text="${gradedSubmission.grade}">100</span>
                     /
-                    <span th:text="${assignment.maxPoints}">
-                        100
-                    </span>
+                    <span th:text="${assignment.maxPoints}">100</span>
                 </span>
             </div>
 
@@ -274,14 +382,12 @@
                      or #strings.isEmpty(gradedSubmission.feedback)}">
                 Your teacher has not added written feedback.
             </div>
-
         </div>
     </section>
 
     <!-- ASSIGNMENT INSTRUCTIONS -->
 
     <section class="panel">
-
         <div class="panel-heading">
             Assignment Instructions
         </div>
@@ -290,20 +396,41 @@
              th:text="${assignment.description}">
             Assignment instructions
         </div>
-
     </section>
 
     <!-- JAVA EDITOR -->
 
     <section class="panel">
 
-        <div class="panel-heading"
-             style="display:flex;
-                    justify-content:space-between;
-                    align-items:center;
-                    gap:12px;">
+        <div class="panel-heading editor-heading">
 
-            <span>Main.java</span>
+            <div class="file-toolbar">
+                <button id="addFileButton"
+                        type="button"
+                        onclick="addJavaFile()"
+                        disabled>
+                    + New File
+                </button>
+
+                <button id="renameFileButton"
+                        type="button"
+                        onclick="renameJavaFile()"
+                        disabled>
+                    Rename
+                </button>
+
+                <button id="deleteFileButton"
+                        type="button"
+                        onclick="deleteJavaFile()"
+                        disabled>
+                    Delete
+                </button>
+
+                <span id="fileCount"
+                      class="file-count">
+                    1 / 20 files
+                </span>
+            </div>
 
             <span id="saveStatus"
                   class="hint"
@@ -311,32 +438,35 @@
                   aria-live="polite">
                 Loading draft...
             </span>
+        </div>
 
+        <div id="fileTabs"
+             class="file-tabs"
+             role="tablist"
+             aria-label="Java source files">
         </div>
 
         <div id="editor"></div>
+
+
 
     </section>
 
     <!-- PROGRAM INPUT -->
 
     <section class="panel">
-
         <div class="panel-heading">
             Program Input
         </div>
 
         <textarea id="programInput"
                   placeholder="Enter Scanner input here, one line at a time."></textarea>
-
     </section>
 
-    <!-- CONSOLE OUTPUT WITH RUN BUTTON -->
+    <!-- CONSOLE OUTPUT -->
 
     <section class="panel">
-
         <div class="panel-heading console-heading">
-
             <span>Console Output</span>
 
             <button id="consoleRunButton"
@@ -346,21 +476,15 @@
                     disabled>
                 ▶ Run
             </button>
-
         </div>
 
         <pre id="consoleOutput">Click Run to execute your program.</pre>
-
     </section>
 
     <p class="hint">
         Run your code to test it.
         Submit Assignment when you are ready.
-    </p>
-
-    <p class="warning">
-        Development only: Java execution is not yet isolated
-        for use by students.
+        Your Java files are automatically saved.
     </p>
 
     <!-- ASSIGNMENT SUBMISSION FORM -->
@@ -377,6 +501,9 @@
                name="code"
                id="submissionCode">
 
+        <input type="hidden"
+               name="filesJson"
+               id="submissionFilesJson">
     </form>
 
 </main>
@@ -402,6 +529,10 @@
     const draftUrl =
         draftBaseUrl + "/" + assignmentId + "/draft";
 
+    const formatUrl =
+        /*[[@{/api/java/format}]]*/
+        "/api/java/format";
+
     const starterCode =
         /*[[${assignment.starterCode}]]*/
         "";
@@ -414,12 +545,38 @@
         "}"
     ].join("\n");
 
+    const MAX_FILES = 20;
+    const MAX_TOTAL_BYTES = 65536;
+
+    const FILENAME_PATTERN =
+        /^[A-Za-z_$][A-Za-z0-9_$]*\.java$/;
+
+    const EDITOR_MIN_HEIGHT = 440;
+    const EDITOR_MAX_HEIGHT = 3000;
+
     let editor = null;
+
+    // Each Java file has its own Monaco model.
+    const fileModels = new Map();
+
+    let activeFilename = "Main.java";
+
     let submitting = false;
-    let saveTimer = null;
-    let saving = false;
-    let savedCode = null;
     let running = false;
+    let saving = false;
+    let saveTimer = null;
+
+    // Tracks the exact last successfully saved project.
+    let savedSnapshot = null;
+
+    // Prevents save requests from overlapping.
+    let savePromise = null;
+
+    // Increments whenever any file changes.
+    let changeVersion = 0;
+
+    // Set while restoring or switching files.
+    let initializing = true;
 
     const runButton =
         document.getElementById("runButton");
@@ -430,18 +587,41 @@
     const submitButton =
         document.getElementById("submitButton");
 
+    const addFileButton =
+        document.getElementById("addFileButton");
+
+    const renameFileButton =
+        document.getElementById("renameFileButton");
+
+    const deleteFileButton =
+        document.getElementById("deleteFileButton");
+
+    const fileTabs =
+        document.getElementById("fileTabs");
+
+    const fileCount =
+        document.getElementById("fileCount");
+
     const saveStatus =
         document.getElementById("saveStatus");
 
+       const consoleOutput =
+        document.getElementById("consoleOutput");
+
+    // --------------------------------------------------
     // CSRF HEADERS
+    // --------------------------------------------------
 
     function csrfHeaders() {
-
         const token =
-            document.querySelector('meta[name="_csrf"]').content;
+            document.querySelector(
+                'meta[name="_csrf"]'
+            ).content;
 
         const header =
-            document.querySelector('meta[name="_csrf_header"]').content;
+            document.querySelector(
+                'meta[name="_csrf_header"]'
+            ).content;
 
         return {
             "Content-Type": "application/json",
@@ -449,27 +629,439 @@
         };
     }
 
+    // --------------------------------------------------
+    // STATUS HELPERS
+    // --------------------------------------------------
+
     function setSaveStatus(message) {
         saveStatus.textContent = message;
     }
 
-    // KEEP BOTH RUN BUTTONS SYNCHRONIZED
+    function hasMultipleFiles() {
+        return fileModels.size > 1;
+    }
+
 
     function setRunButtonsState(isRunning) {
+        const canRun =
+            !!editor &&
+            !isRunning &&
+            !submitting &&
+            !initializing;
 
-        runButton.disabled = isRunning || !editor;
-        consoleRunButton.disabled = isRunning || !editor;
+        runButton.disabled = !canRun;
+        consoleRunButton.disabled = !canRun;
 
-        const label = isRunning ? "Running..." : "▶ Run";
+        const label =
+            isRunning ? "Running..." : "▶ Run";
 
         runButton.textContent = label;
         consoleRunButton.textContent = label;
+
+        }
+
+
+    function updateFileButtons() {
+        const ready = !!editor && !submitting;
+
+        addFileButton.disabled =
+            !ready || fileModels.size >= MAX_FILES;
+
+        renameFileButton.disabled =
+            !ready || activeFilename === "Main.java";
+
+        deleteFileButton.disabled =
+            !ready || activeFilename === "Main.java";
+
+        fileCount.textContent =
+            fileModels.size + " / " + MAX_FILES + " files";
+
+        setRunButtonsState(running);
     }
 
-    // LOAD SAVED DRAFT
+    // --------------------------------------------------
+    // FILE VALIDATION
+    // --------------------------------------------------
+
+    function validFilename(filename) {
+        return typeof filename === "string" &&
+            filename.length <= 120 &&
+            FILENAME_PATTERN.test(filename);
+    }
+
+    function normalizeFilename(filename) {
+        if (filename == null) {
+            return null;
+        }
+
+        let result = filename.trim();
+
+        if (result && !result.endsWith(".java")) {
+            result += ".java";
+        }
+
+        return result;
+    }
+
+    function validateProject(files) {
+        if (!Object.prototype.hasOwnProperty.call(
+            files, "Main.java")) {
+            return "Main.java is required.";
+        }
+
+        const names = Object.keys(files);
+
+        if (names.length > MAX_FILES) {
+            return "Maximum of 20 Java files allowed.";
+        }
+
+        let totalBytes = 0;
+        const encoder = new TextEncoder();
+
+        for (const filename of names) {
+            if (!validFilename(filename)) {
+                return "Invalid filename: " + filename;
+            }
+
+            if (typeof files[filename] !== "string") {
+                return "Invalid contents in " + filename;
+            }
+
+            totalBytes +=
+                encoder.encode(files[filename]).length;
+
+            if (totalBytes > MAX_TOTAL_BYTES) {
+                return "Total Java source exceeds 64 KB.";
+            }
+        }
+
+        return null;
+    }
+
+    // --------------------------------------------------
+    // MONACO MODEL MANAGEMENT
+    // --------------------------------------------------
+
+    function createFileModel(filename, code) {
+        if (fileModels.has(filename)) {
+            throw new Error(
+                "File already exists: " + filename
+            );
+        }
+
+        const uri = monaco.Uri.parse(
+            "inmemory://assignment-" +
+            assignmentId + "/" + filename
+        );
+
+        const model = monaco.editor.createModel(
+            code,
+            "java",
+            uri
+        );
+
+        fileModels.set(filename, model);
+
+        return model;
+    }
+
+    function getAllFiles() {
+        const files = {};
+
+        for (const [filename, model] of fileModels) {
+            Object.defineProperty(files, filename, {
+                value: model.getValue(),
+                enumerable: true,
+                configurable: true,
+                writable: true
+            });
+        }
+
+        return files;
+    }
+
+    function projectSnapshot() {
+        const files = getAllFiles();
+
+        // Sort filenames so comparisons are stable.
+        const sorted = {};
+
+        for (const filename of Object.keys(files).sort()) {
+            Object.defineProperty(sorted, filename, {
+                value: files[filename],
+                enumerable: true,
+                configurable: true,
+                writable: true
+            });
+        }
+
+        return JSON.stringify(sorted);
+    }
+
+    function hasUnsavedChanges() {
+        if (!editor || initializing) {
+            return false;
+        }
+
+        return projectSnapshot() !== savedSnapshot;
+    }
+
+    // --------------------------------------------------
+    // FILE TABS
+    // --------------------------------------------------
+
+    function renderFileTabs() {
+        fileTabs.replaceChildren();
+
+        for (const filename of fileModels.keys()) {
+            const tab = document.createElement("button");
+
+            tab.type = "button";
+            tab.className = "file-tab";
+            tab.setAttribute("role", "tab");
+            tab.setAttribute(
+                "aria-selected",
+                String(filename === activeFilename)
+            );
+
+            if (filename === activeFilename) {
+                tab.classList.add("active");
+            }
+
+            const name =
+                document.createElement("span");
+
+            name.className = "file-tab-name";
+            name.textContent = filename;
+
+            tab.appendChild(name);
+
+            tab.addEventListener("click", () => {
+                switchFile(filename);
+            });
+
+            fileTabs.appendChild(tab);
+        }
+
+        updateFileButtons();
+    }
+
+    function switchFile(filename) {
+        if (!editor || !fileModels.has(filename)) {
+            return;
+        }
+
+        activeFilename = filename;
+
+        editor.setModel(fileModels.get(filename));
+
+        renderFileTabs();
+        resizeEditor();
+
+        editor.focus();
+    }
+
+    // --------------------------------------------------
+    // CREATE FILE
+    // --------------------------------------------------
+
+    function addJavaFile() {
+        if (!editor || submitting) {
+            return;
+        }
+
+        if (fileModels.size >= MAX_FILES) {
+            alert("Maximum of 20 Java files allowed.");
+            return;
+        }
+
+        const requested = prompt(
+            "Enter the new Java filename:",
+            "NewClass.java"
+        );
+
+        if (requested === null) {
+            return;
+        }
+
+        const filename = normalizeFilename(requested);
+
+        if (!validFilename(filename)) {
+            alert(
+                "Invalid filename.\n\n" +
+                "Use a Java class name such as Player.java.\n" +
+                "Only letters, numbers, underscores, and " +
+                "dollar signs are allowed."
+            );
+            return;
+        }
+
+        if (fileModels.has(filename)) {
+            alert("A file with that name already exists.");
+            return;
+        }
+
+        const className =
+            filename.substring(0, filename.length - 5);
+
+        const code = [
+            "public class " + className + " {",
+            "",
+            "}"
+        ].join("\n");
+
+        createFileModel(filename, code);
+
+        switchFile(filename);
+        projectChanged();
+    }
+
+    // --------------------------------------------------
+    // RENAME FILE
+    // --------------------------------------------------
+
+    function renameJavaFile() {
+        if (!editor || submitting) {
+            return;
+        }
+
+        if (activeFilename === "Main.java") {
+            alert("Main.java cannot be renamed.");
+            return;
+        }
+
+        const oldFilename = activeFilename;
+
+        const requested = prompt(
+            "Rename Java file:",
+            oldFilename
+        );
+
+        if (requested === null) {
+            return;
+        }
+
+        const newFilename =
+            normalizeFilename(requested);
+
+        if (!validFilename(newFilename)) {
+            alert("Invalid Java filename.");
+            return;
+        }
+
+        if (newFilename === oldFilename) {
+            return;
+        }
+
+        if (fileModels.has(newFilename)) {
+            alert("A file with that name already exists.");
+            return;
+        }
+
+        const oldModel =
+            fileModels.get(oldFilename);
+
+        const oldCode =
+            oldModel.getValue();
+
+        // Preserve the code. A class declaration may need
+        // updating to match the new filename.
+        const newModel =
+            createFileModel(newFilename, oldCode);
+
+        fileModels.delete(oldFilename);
+
+        activeFilename = newFilename;
+
+        editor.setModel(newModel);
+
+        oldModel.dispose();
+
+        renderFileTabs();
+        resizeEditor();
+
+        projectChanged();
+
+        alert(
+            "File renamed to " + newFilename + ".\n\n" +
+            "Remember to update the public class name " +
+            "inside the file if necessary."
+        );
+    }
+
+    // --------------------------------------------------
+    // DELETE FILE
+    // --------------------------------------------------
+
+    function deleteJavaFile() {
+        if (!editor || submitting) {
+            return;
+        }
+
+        if (activeFilename === "Main.java") {
+            alert("Main.java cannot be deleted.");
+            return;
+        }
+
+        const filename = activeFilename;
+
+        if (!confirm(
+            "Permanently delete " + filename + "?"
+        )) {
+            return;
+        }
+
+        const model = fileModels.get(filename);
+
+        // Switch away before disposing the model.
+        activeFilename = "Main.java";
+        editor.setModel(fileModels.get("Main.java"));
+
+        fileModels.delete(filename);
+        model.dispose();
+
+        renderFileTabs();
+        resizeEditor();
+
+        projectChanged();
+    }
+
+    // --------------------------------------------------
+    // AUTO-EXPAND MONACO EDITOR
+    // --------------------------------------------------
+
+    function resizeEditor() {
+        if (!editor) {
+            return;
+        }
+
+        const editorElement =
+            document.getElementById("editor");
+
+        const contentHeight =
+            editor.getContentHeight();
+
+        const newHeight = Math.max(
+            EDITOR_MIN_HEIGHT,
+            Math.min(
+                contentHeight,
+                EDITOR_MAX_HEIGHT
+            )
+        );
+
+        if (editorElement.style.height !== newHeight + "px") {
+            editorElement.style.height =
+                newHeight + "px";
+
+            editor.layout();
+        }
+    }
+
+    // --------------------------------------------------
+    // LOAD SAVED ASSIGNMENT DRAFT
+    // --------------------------------------------------
 
     async function loadDraft() {
-
         const response = await fetch(draftUrl, {
             method: "GET",
             cache: "no-store"
@@ -477,92 +1069,149 @@
 
         if (!response.ok) {
             throw new Error(
-                "Draft loading failed: HTTP " + response.status
+                "Draft loading failed: HTTP " +
+                response.status
             );
         }
 
         return await response.json();
     }
 
-    // SAVE DRAFT
+    // --------------------------------------------------
+    // SAVE ASSIGNMENT DRAFT
+    // --------------------------------------------------
 
     async function saveDraft() {
-
-        if (!editor || saving) {
+        if (!editor || initializing || submitting) {
             return;
+        }
+
+        if (saving) {
+            return savePromise;
         }
 
         clearTimeout(saveTimer);
         saveTimer = null;
 
-        const code = editor.getValue();
+        const files = getAllFiles();
+        const snapshot = projectSnapshot();
 
-        if (code === savedCode) {
+        if (snapshot === savedSnapshot) {
             setSaveStatus("Saved");
+            return;
+        }
+
+        const validationError =
+            validateProject(files);
+
+        if (validationError) {
+            setSaveStatus(
+                "Save failed: " + validationError
+            );
             return;
         }
 
         saving = true;
         setSaveStatus("Saving...");
 
-        try {
+        savePromise = (async () => {
+            try {
+                const response = await fetch(draftUrl, {
+                    method: "POST",
+                    headers: csrfHeaders(),
+                    body: JSON.stringify({ files })
+                });
 
-            const response = await fetch(draftUrl, {
-                method: "POST",
-                headers: csrfHeaders(),
-                body: JSON.stringify({ code })
-            });
+                if (!response.ok) {
+                    let message =
+                        "HTTP " + response.status;
 
-            if (!response.ok) {
-                throw new Error(
-                    "HTTP " + response.status
+                    try {
+                        const result =
+                            await response.json();
+
+                        if (result.error) {
+                            message = result.error;
+                        }
+                    } catch (_) {
+                        // Keep the HTTP error.
+                    }
+
+                    throw new Error(message);
+                }
+
+                savedSnapshot = snapshot;
+
+                if (projectSnapshot() === savedSnapshot) {
+                    setSaveStatus("Saved");
+                } else {
+                    setSaveStatus("Unsaved changes");
+                }
+
+            } catch (error) {
+                console.error(
+                    "Draft save error:", error
                 );
+
+                setSaveStatus(
+                    "Save failed — retrying"
+                );
+
+                return false;
+
+            } finally {
+                saving = false;
             }
 
-            savedCode = code;
+            return true;
+        })();
 
-            if (editor.getValue() === savedCode) {
-                setSaveStatus("Saved");
-            } else {
+        const success = await savePromise;
 
-                setSaveStatus("Unsaved changes");
+        savePromise = null;
 
-                saveTimer = setTimeout(
-                    saveDraft, 300
-                );
-            }
-
-        } catch (error) {
-
-            console.error("Draft save error:", error);
-
-            setSaveStatus("Save failed — retrying");
+        if (hasUnsavedChanges() && !submitting) {
+            clearTimeout(saveTimer);
 
             saveTimer = setTimeout(
-                saveDraft, 5000
+                saveDraft,
+                success ? 300 : 5000
             );
-
-        } finally {
-            saving = false;
         }
+
+        return success;
     }
 
     function scheduleSave() {
-
         clearTimeout(saveTimer);
 
         setSaveStatus("Unsaved changes");
 
         saveTimer = setTimeout(
-            saveDraft, 1500
+            saveDraft,
+            1500
         );
     }
 
+    function projectChanged() {
+        if (initializing) {
+            return;
+        }
+
+        changeVersion++;
+
+        renderFileTabs();
+        scheduleSave();
+    }
+
+    // --------------------------------------------------
     // INITIALIZE MONACO
+    // --------------------------------------------------
 
     require.config({
         paths: {
-            vs: "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs"
+            vs: "https://cdnjs.cloudflare.com/ajax/libs/" +
+                "monaco-editor/0.52.2/min/vs"
         }
     });
 
@@ -570,23 +1219,101 @@
         ["vs/editor/editor.main"],
         async function () {
 
-            let initialCode;
+            // JAVA DOCUMENT FORMATTING PROVIDER
+
+            monaco.languages
+                .registerDocumentFormattingEditProvider(
+                    "java",
+                    {
+                        provideDocumentFormattingEdits:
+                            async function (model) {
+
+                                const token =
+                                    document.querySelector(
+                                        'meta[name="_csrf"]'
+                                    ).content;
+
+                                const header =
+                                    document.querySelector(
+                                        'meta[name="_csrf_header"]'
+                                    ).content;
+
+                                const response =
+                                    await fetch(formatUrl, {
+                                        method: "POST",
+                                        headers: {
+                                            "Content-Type":
+                                                "text/plain; charset=UTF-8",
+                                            [header]: token
+                                        },
+                                        body: model.getValue()
+                                    });
+
+                                if (!response.ok) {
+                                    const error =
+                                        await response.text();
+
+                                    throw new Error(
+                                        error ||
+                                        "Java formatting failed"
+                                    );
+                                }
+
+                                const formattedCode =
+                                    await response.text();
+
+                                return [{
+                                    range:
+                                        model.getFullModelRange(),
+                                    text: formattedCode
+                                }];
+                            }
+                    }
+                );
+
+            // RESTORE STUDENT DRAFT
+
+            let initialFiles = {};
+            let draftFound = false;
 
             try {
-
                 const draft = await loadDraft();
 
-                initialCode = draft.found
-                    ? draft.code
-                    : (starterCode || defaultCode);
+                draftFound = !!draft.found;
 
-                savedCode = draft.found
-                    ? draft.code
-                    : null;
+                if (draft.found) {
+                    if (draft.files &&
+                        typeof draft.files === "object" &&
+                        !Array.isArray(draft.files) &&
+                        Object.keys(draft.files).length > 0) {
+
+                        initialFiles = draft.files;
+
+                    } else {
+                        // Compatibility with older drafts.
+                        initialFiles = {
+                            "Main.java": draft.code || ""
+                        };
+                    }
+
+                } else {
+                    initialFiles = {
+                        "Main.java":
+                            starterCode || defaultCode
+                    };
+                }
+
+                const error =
+                    validateProject(initialFiles);
+
+                if (error) {
+                    throw new Error(error);
+                }
 
             } catch (error) {
-
-                console.error("Draft load error:", error);
+                console.error(
+                    "Draft load error:", error
+                );
 
                 setSaveStatus(
                     "Could not load draft — refresh to retry"
@@ -595,72 +1322,338 @@
                 return;
             }
 
+            // CREATE MONACO MODELS
+
+            const filenames =
+                Object.keys(initialFiles).sort(
+                    (a, b) => {
+                        if (a === "Main.java") return -1;
+                        if (b === "Main.java") return 1;
+                        return a.localeCompare(b);
+                    }
+                );
+
+            for (const filename of filenames) {
+                createFileModel(
+                    filename,
+                    initialFiles[filename]
+                );
+            }
+
+            // CREATE EDITOR
+
             editor = monaco.editor.create(
                 document.getElementById("editor"),
                 {
-                    value: initialCode,
+                    model: fileModels.get("Main.java"),
                     language: "java",
                     theme: "vs-dark",
                     automaticLayout: true,
-                    minimap: { enabled: false },
+
+                    // CTRL+CLICK FOR MULTIPLE CURSORS
+                    multiCursorModifier: "ctrlCmd",
+
+                    minimap: {
+                        enabled: false
+                    },
+
                     fontSize: 15,
                     tabSize: 4,
                     insertSpaces: true,
-                    scrollBeyondLastLine: false
+                    scrollBeyondLastLine: false,
+
+                    // PAGE SCROLLING INSTEAD OF
+                    // EDITOR SCROLLING
+                    scrollbar: {
+                        vertical: "hidden",
+                        horizontal: "auto",
+                        handleMouseWheel: false,
+                        alwaysConsumeMouseWheel: false
+                    }
                 }
             );
 
-            editor.onDidChangeModelContent(
-                scheduleSave
+            // --------------------------------------------------
+            // FONT SIZE SHORTCUTS
+            // --------------------------------------------------
+
+            const DEFAULT_FONT_SIZE = 15;
+            let currentFontSize = DEFAULT_FONT_SIZE;
+
+            function applyFontSize() {
+                editor.updateOptions({
+                    fontSize: currentFontSize
+                });
+
+                consoleOutput.style.fontSize =
+                    currentFontSize + "px";
+            }
+
+            function changeEditorFontSize(amount) {
+                currentFontSize = Math.max(
+                    10,
+                    Math.min(
+                        50,
+                        currentFontSize + amount
+                    )
+                );
+
+                applyFontSize();
+            }
+
+            applyFontSize();
+
+            // CTRL+UP - INCREASE FONT SIZE
+
+            editor.addAction({
+                id: "increase-editor-font",
+                label: "Increase Editor Font Size",
+                keybindings: [
+                    monaco.KeyMod.CtrlCmd |
+                    monaco.KeyCode.UpArrow
+                ],
+                run: function () {
+                    changeEditorFontSize(1);
+                }
+            });
+
+            // CTRL+DOWN - DECREASE FONT SIZE
+
+            editor.addAction({
+                id: "decrease-editor-font",
+                label: "Decrease Editor Font Size",
+                keybindings: [
+                    monaco.KeyMod.CtrlCmd |
+                    monaco.KeyCode.DownArrow
+                ],
+                run: function () {
+                    changeEditorFontSize(-1);
+                }
+            });
+
+            // CTRL+0 - RESET FONT SIZE
+
+            editor.addAction({
+                id: "reset-editor-font",
+                label: "Reset Editor Font Size",
+                keybindings: [
+                    monaco.KeyMod.CtrlCmd |
+                    monaco.KeyCode.Digit0
+                ],
+                run: function () {
+                    currentFontSize = DEFAULT_FONT_SIZE;
+                    applyFontSize();
+                }
+            });
+
+            // --------------------------------------------------
+            // CTRL+D - DELETE CURRENT LINE
+            // --------------------------------------------------
+
+            editor.addAction({
+                id: "delete-current-line",
+                label: "Delete Current Line",
+                keybindings: [
+                    monaco.KeyMod.CtrlCmd |
+                    monaco.KeyCode.KeyD
+                ],
+                run: function (editor) {
+                    editor.trigger(
+                        "keyboard",
+                        "editor.action.deleteLines",
+                        null
+                    );
+                }
+            });
+
+            // --------------------------------------------------
+            // CTRL+SPACE - EXPAND SYSOUT
+            // --------------------------------------------------
+
+            editor.addAction({
+                id: "expand-sysout",
+                label: "Expand sysout",
+                keybindings: [
+                    monaco.KeyMod.CtrlCmd |
+                    monaco.KeyCode.Space
+                ],
+                run: function (editor) {
+                    const model =
+                        editor.getModel();
+
+                    const position =
+                        editor.getPosition();
+
+                    if (!model || !position) {
+                        return;
+                    }
+
+                    const word =
+                        model.getWordUntilPosition(position);
+
+                    if (word.word === "sysout") {
+                        const range =
+                            new monaco.Range(
+                                position.lineNumber,
+                                word.startColumn,
+                                position.lineNumber,
+                                word.endColumn
+                            );
+
+                        editor.executeEdits(
+                            "expand-sysout",
+                            [{
+                                range: range,
+                                text:
+                                    'System.out.println("");',
+                                forceMoveMarkers: true
+                            }]
+                        );
+
+                        editor.setPosition({
+                            lineNumber:
+                            position.lineNumber,
+                            column:
+                                word.startColumn +
+                                'System.out.println("'.length
+                        });
+
+                        editor.focus();
+
+                    } else {
+                        editor.trigger(
+                            "keyboard",
+                            "editor.action.triggerSuggest",
+                            {}
+                        );
+                    }
+                }
+            });
+
+            // --------------------------------------------------
+            // CTRL+SHIFT+F - FORMAT JAVA CODE
+            // --------------------------------------------------
+
+            editor.addAction({
+                id: "format-java-code",
+                label: "Format Java Code",
+                keybindings: [
+                    monaco.KeyMod.CtrlCmd |
+                    monaco.KeyMod.Shift |
+                    monaco.KeyCode.KeyF
+                ],
+                run: function (editor) {
+                    return editor.getAction(
+                        "editor.action.formatDocument"
+                    ).run();
+                }
+            });
+
+            // --------------------------------------------------
+            // AUTOSAVE AND EDITOR RESIZING
+            // --------------------------------------------------
+
+            editor.onDidContentSizeChange(
+                function () {
+                    resizeEditor();
+                }
             );
 
-            // ENABLE BOTH RUN BUTTONS
+            // Model changes must be monitored globally,
+            // not only for the currently active tab.
+            monaco.editor.onDidCreateModel(
+                function (model) {
+                    if (model.uri.toString().startsWith(
+                        "inmemory://assignment-" +
+                        assignmentId + "/")) {
 
-            setRunButtonsState(false);
+                        model.onDidChangeContent(
+                            projectChanged
+                        );
+                    }
+                }
+            );
+
+            // Attach listeners to models created before
+            // the global listener was registered.
+            for (const model of fileModels.values()) {
+                model.onDidChangeContent(
+                    projectChanged
+                );
+            }
+
+            // --------------------------------------------------
+            // FINISH INITIALIZATION
+            // --------------------------------------------------
+
+            activeFilename = "Main.java";
+
+            savedSnapshot = draftFound
+                ? projectSnapshot()
+                : null;
+
+            initializing = false;
+
+            renderFileTabs();
+            resizeEditor();
 
             submitButton.disabled = false;
 
+            setRunButtonsState(false);
+
             setSaveStatus(
-                savedCode !== null
+                draftFound
                     ? "Draft restored"
                     : "Ready — autosave enabled"
             );
+
+            // Save starter code automatically so it
+            // survives the student's first refresh.
+            if (!draftFound) {
+                scheduleSave();
+            }
         }
     );
 
-    // RUN JAVA USING EXISTING RUNNER
+    // --------------------------------------------------
+    // RUN JAVA USING EXISTING SINGLE-FILE RUNNER
+    // --------------------------------------------------
+
 
     async function runJava() {
-
-        const output =
-            document.getElementById("consoleOutput");
-
-        if (!editor) {
-            output.textContent =
-                "Editor is still loading.";
+        if (!editor || running || submitting || initializing) {
             return;
         }
 
-        // PREVENT MULTIPLE SIMULTANEOUS RUNS
+        const files = getAllFiles();
 
-        if (running) {
+        const validationError = validateProject(files);
+
+        if (validationError) {
+            consoleOutput.textContent = validationError;
+            return;
+        }
+
+        if (!files["Main.java"].trim()) {
+            consoleOutput.textContent =
+                "Main.java cannot be empty.";
             return;
         }
 
         running = true;
-
         setRunButtonsState(true);
 
-        output.textContent =
-            "Compiling and running...";
+        consoleOutput.textContent =
+            "Compiling and running " +
+            Object.keys(files).length +
+            " Java file(s)...";
 
         try {
-
             const response = await fetch(runUrl, {
                 method: "POST",
                 headers: csrfHeaders(),
                 body: JSON.stringify({
-                    code: editor.getValue(),
+                    files: files,
                     input: document.getElementById(
                         "programInput"
                     ).value
@@ -669,82 +1662,198 @@
 
             const result = await response.json();
 
-            output.textContent =
+            consoleOutput.textContent =
                 [result.output, result.error]
                     .filter(Boolean)
                     .join("\n") || "No output.";
 
             if (!response.ok) {
-                output.textContent =
+                consoleOutput.textContent =
                     result.error ||
-                    "Request failed: HTTP " + response.status;
+                    result.message ||
+                    "Request failed: HTTP " +
+                    response.status;
             }
 
         } catch (error) {
-
             console.error("Java run error:", error);
 
-            output.textContent =
+            consoleOutput.textContent =
                 "Could not contact Java runner: " +
                 error.message;
 
         } finally {
-
             running = false;
-
-            // RESTORE BOTH RUN BUTTONS
-
             setRunButtonsState(false);
         }
     }
 
+
+    // --------------------------------------------------
     // SUBMIT ASSIGNMENT
+    // --------------------------------------------------
 
-    function submitAssignment() {
-
+    async function submitAssignment() {
         if (!editor || submitting) {
             return;
         }
 
-        const code = editor.getValue();
+        const files = getAllFiles();
 
-        if (!code.trim()) {
+        const validationError =
+            validateProject(files);
+
+        if (validationError) {
+            alert(validationError);
+            return;
+        }
+
+        const hasCode =
+            Object.values(files).some(
+                code => code.trim().length > 0
+            );
+
+        if (!hasCode) {
             alert(
-                "Please write some Java code before submitting."
+                "Please write some Java code " +
+                "before submitting."
             );
             return;
         }
 
         if (!confirm(
-            "Submit your current Java code for this assignment?"
+            "Submit all " +
+            fileModels.size +
+            " Java file(s) for this assignment?"
         )) {
             return;
         }
 
-        document.getElementById("submissionCode").value =
-            code;
-
         submitting = true;
 
-        submitButton.disabled = true;
-        submitButton.textContent = "Submitting...";
+        clearTimeout(saveTimer);
+        saveTimer = null;
 
-        document.getElementById("submissionForm").submit();
+        submitButton.disabled = true;
+        submitButton.textContent =
+            "Submitting...";
+
+        updateFileButtons();
+
+        // Save any unsaved changes before submitting.
+        // Submission also carries its own complete
+        // snapshot of every Java file.
+        try {
+            if (saving && savePromise) {
+                await savePromise;
+            }
+
+            if (hasUnsavedChanges()) {
+                await saveDraftForSubmission();
+            }
+
+        } catch (error) {
+            console.error(
+                "Pre-submission save error:", error
+            );
+
+            const proceed = confirm(
+                "Your draft could not be saved, but " +
+                "the submission can still include " +
+                "all your current Java files.\n\n" +
+                "Submit anyway?"
+            );
+
+            if (!proceed) {
+                submitting = false;
+                submitButton.disabled = false;
+                submitButton.textContent =
+                    "Submit Assignment";
+
+                updateFileButtons();
+                scheduleSave();
+                return;
+            }
+        }
+
+        // Capture the latest contents of every file.
+        const submissionFiles = getAllFiles();
+
+        const finalError =
+            validateProject(submissionFiles);
+
+        if (finalError) {
+            alert(finalError);
+
+            submitting = false;
+            submitButton.disabled = false;
+            submitButton.textContent =
+                "Submit Assignment";
+
+            updateFileButtons();
+            return;
+        }
+
+        document.getElementById(
+            "submissionCode"
+        ).value = submissionFiles["Main.java"];
+
+        document.getElementById(
+            "submissionFilesJson"
+        ).value = JSON.stringify(
+            submissionFiles
+        );
+
+        // Form submission is intentional navigation.
+        window.removeEventListener(
+            "beforeunload",
+            warnUnsavedChanges
+        );
+
+        document.getElementById(
+            "submissionForm"
+        ).submit();
     }
 
+    // --------------------------------------------------
+    // SAVE IMMEDIATELY BEFORE SUBMISSION
+    // --------------------------------------------------
+
+    async function saveDraftForSubmission() {
+        const files = getAllFiles();
+        const snapshot = projectSnapshot();
+
+        const response = await fetch(draftUrl, {
+            method: "POST",
+            headers: csrfHeaders(),
+            body: JSON.stringify({ files })
+        });
+
+        if (!response.ok) {
+            throw new Error(
+                "Draft save failed: HTTP " +
+                response.status
+            );
+        }
+
+        savedSnapshot = snapshot;
+        setSaveStatus("Saved");
+    }
+
+    // --------------------------------------------------
     // WARN ABOUT UNSAVED CHANGES
+    // --------------------------------------------------
+
+    function warnUnsavedChanges(event) {
+        if (hasUnsavedChanges() && !submitting) {
+            event.preventDefault();
+            event.returnValue = "";
+        }
+    }
 
     window.addEventListener(
         "beforeunload",
-        function (event) {
-
-            if (editor &&
-                editor.getValue() !== savedCode) {
-
-                event.preventDefault();
-                event.returnValue = "";
-            }
-        }
+        warnUnsavedChanges
     );
 
 </script>

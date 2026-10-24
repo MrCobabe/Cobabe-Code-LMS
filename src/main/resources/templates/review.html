@@ -1,8 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <title>Review Submission | Cobabe Code LMS</title>
 
     <meta name="_csrf" th:content="${_csrf.token}">
@@ -109,9 +111,10 @@
             gap: 12px;
             margin-top: 16px;
             align-items: center;
+            flex-wrap: wrap;
         }
 
-        /* Assignment instructions */
+        /* ASSIGNMENT INSTRUCTIONS */
 
         .assignment-instructions {
             background: #0f172a;
@@ -131,10 +134,94 @@
             font-style: italic;
         }
 
+        /* JAVA FILE TABS */
+
+        .file-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 16px;
+            border-bottom: 1px solid #475569;
+        }
+
+        .file-tab {
+            padding: 11px 17px;
+            background: #334155;
+            color: #cbd5e1;
+            border: 1px solid #475569;
+            border-bottom: none;
+            border-radius: 6px 6px 0 0;
+            cursor: pointer;
+            font-family: Consolas, monospace;
+            font-size: 14px;
+        }
+
+        .file-tab:hover {
+            background: #475569;
+        }
+
+        .file-tab.active {
+            background: #0f172a;
+            color: #fb923c;
+            border-top: 2px solid #f97316;
+            font-weight: bold;
+        }
+
+        .file-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin: 12px 0;
+        }
+
+        .file-count {
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
+        .current-file {
+            color: #fb923c;
+            font-family: Consolas, monospace;
+            font-size: 14px;
+        }
+
+        .run-warning {
+            color: #fdba74;
+            background: #422006;
+            border: 1px solid #92400e;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 12px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 600px) {
+            main {
+                padding: 12px;
+                margin-top: 12px;
+            }
+
+            .card {
+                padding: 14px;
+            }
+
+            .file-tab {
+                padding: 9px 12px;
+                font-size: 12px;
+            }
+        }
     </style>
 </head>
 
 <body>
+
 <main>
 
     <a class="button"
@@ -159,7 +246,8 @@
         <span th:text="${submission.assignment.maxPoints}"></span>
     </p>
 
-    <!-- Assignment Instructions -->
+    <!-- ASSIGNMENT INSTRUCTIONS -->
+
     <div class="card">
 
         <h2>Assignment Instructions</h2>
@@ -179,42 +267,91 @@
 
     </div>
 
+    <!-- SUBMITTED JAVA FILES -->
+
     <div class="card">
+
         <h2>Submitted Java Code</h2>
 
         <p class="muted">
-            This is the student's submitted code.
-            It is read-only.
+            These are the student's submitted Java files.
+            They are read-only.
         </p>
+
+        <!-- FILE TABS -->
+
+        <div id="fileTabs"
+             class="file-tabs"
+             role="tablist"
+             aria-label="Submitted Java files">
+
+            <button type="button"
+                    class="file-tab"
+                    role="tab"
+                    th:each="sourceFile : ${sourceFiles}"
+                    th:text="${sourceFile.key}"
+                    th:attr="data-filename=${sourceFile.key}"
+                    th:classappend="${sourceFile.key == 'Main.java'} ? ' active' : ''"
+                    th:attrappend="aria-selected=${sourceFile.key == 'Main.java'}"
+                    onclick="switchFile(this.dataset.filename)">
+                Main.java
+            </button>
+
+        </div>
+
+        <div class="file-info">
+            <span id="currentFilename"
+                  class="current-file">
+                Main.java
+            </span>
+
+            <span class="file-count"
+                  th:text="${#maps.size(sourceFiles)} + ' Java file(s) submitted'">
+                1 Java file submitted
+            </span>
+        </div>
+
+        <!-- READ-ONLY CODE VIEW -->
 
         <textarea id="code"
                   readonly
                   spellcheck="false"
                   th:text="${submission.code}"></textarea>
 
+        <!-- RUN STUDENT CODE -->
+
         <h2>Run Student Code</h2>
 
-        <label for="stdin">Console Input (optional)</label>
+        <label for="stdin">
+            Console Input (optional)
+        </label>
 
         <textarea id="stdin"
                   rows="3"
                   placeholder="Input for Scanner, if needed"></textarea>
 
         <div class="actions">
+
             <button type="button"
                     id="runButton"
                     class="button primary"
                     onclick="runStudentCode()">
                 ▶ Run Java
             </button>
+
         </div>
+
 
         <h2>Console Output</h2>
 
         <pre id="output">Click Run Java to test the student's program.</pre>
+
     </div>
 
+    <!-- GRADE ASSIGNMENT -->
+
     <div class="card">
+
         <h2>Grade Assignment</h2>
 
         <p th:if="${error}"
@@ -228,7 +365,9 @@
                    th:name="${_csrf.parameterName}"
                    th:value="${_csrf.token}">
 
-            <label for="grade">Score</label>
+            <label for="grade">
+                Score
+            </label>
 
             <input id="grade"
                    name="grade"
@@ -238,7 +377,9 @@
                    th:value="${submission.grade}"
                    required>
 
-            <label for="feedback">Teacher Feedback</label>
+            <label for="feedback">
+                Teacher Feedback
+            </label>
 
             <textarea id="feedback"
                       name="feedback"
@@ -248,76 +389,200 @@
                       placeholder="Write feedback for the student..."></textarea>
 
             <div class="actions">
+
                 <button type="submit"
                         class="button primary">
                     Save Grade &amp; Feedback
                 </button>
+
             </div>
 
         </form>
+
     </div>
 
 </main>
 
-<script>
+<!-- SOURCE FILE DATA FROM THYMELEAF -->
+
+<script th:inline="javascript">
+
+    /*
+     * Thymeleaf safely serializes the Java Map into
+     * a JavaScript object.
+     *
+     * Example:
+     * {
+     *   "Main.java": "...",
+     *   "Player.java": "..."
+     * }
+     */
+    const submittedFiles =
+        /*[[${sourceFiles}]]*/ {};
+
+    const runUrl =
+        /*[[@{/teacher/api/java/run}]]*/
+        "/teacher/api/java/run";
+
+    let activeFilename = "Main.java";
+    let running = false;
+
+    const codeElement =
+        document.getElementById("code");
+
+    const currentFilenameElement =
+        document.getElementById("currentFilename");
+
+    const runButton =
+        document.getElementById("runButton");
+
+    const output =
+        document.getElementById("output");
+
+
+    // --------------------------------------------------
+    // SWITCH BETWEEN SUBMITTED JAVA FILES
+    // --------------------------------------------------
+
+    function switchFile(filename) {
+
+        if (!Object.prototype.hasOwnProperty.call(
+            submittedFiles, filename)) {
+            return;
+        }
+
+        activeFilename = filename;
+
+        codeElement.value =
+            submittedFiles[filename] ?? "";
+
+        currentFilenameElement.textContent =
+            filename;
+
+        document.querySelectorAll(".file-tab")
+            .forEach(tab => {
+
+                const selected =
+                    tab.dataset.filename === filename;
+
+                tab.classList.toggle(
+                    "active",
+                    selected
+                );
+
+                tab.setAttribute(
+                    "aria-selected",
+                    String(selected)
+                );
+            });
+    }
+
+    // --------------------------------------------------
+    // UPDATE RUN BUTTON
+    // --------------------------------------------------
+
+    function updateRunButton() {
+        runButton.disabled =
+            running ||
+            !Object.prototype.hasOwnProperty.call(
+                submittedFiles, "Main.java"
+            );
+
+        runButton.textContent =
+            running ? "Running..." : "▶ Run Java";
+    }
+
+    // --------------------------------------------------
+    // RUN STUDENT CODE
+    // --------------------------------------------------
+
+
     async function runStudentCode() {
 
-        const button = document.getElementById("runButton");
-        const output = document.getElementById("output");
+        if (running) {
+            return;
+        }
 
-        const code = document.getElementById("code").value;
-        const input = document.getElementById("stdin").value;
+        if (!Object.prototype.hasOwnProperty.call(
+            submittedFiles, "Main.java"
+        )) {
+            output.textContent =
+                "This submission does not contain Main.java.";
+            return;
+        }
 
-        const csrfToken = document
-            .querySelector('meta[name="_csrf"]').content;
+        const input =
+            document.getElementById("stdin").value;
 
-        const csrfHeader = document
-            .querySelector('meta[name="_csrf_header"]').content;
+        const csrfToken =
+            document.querySelector(
+                'meta[name="_csrf"]'
+            ).content;
 
-        button.disabled = true;
-        button.textContent = "Running...";
+        const csrfHeader =
+            document.querySelector(
+                'meta[name="_csrf_header"]'
+            ).content;
 
-        output.textContent = "Compiling and running Java code...";
+        running = true;
+        updateRunButton();
+
+        output.textContent =
+            "Compiling and running " +
+            Object.keys(submittedFiles).length +
+            " submitted Java file(s)...";
 
         try {
-            const response = await fetch(
-                "/teacher/submission/run",
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        [csrfHeader]: csrfToken
-                    },
-                    body: JSON.stringify({
-                        code: code,
-                        input: input
-                    })
-                }
-            );
+            const response = await fetch(runUrl, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    [csrfHeader]: csrfToken
+                },
+                body: JSON.stringify({
+                    files: submittedFiles,
+                    input: input
+                })
+            });
+
+            const result = await response.json();
 
             if (!response.ok) {
                 output.textContent =
-                    "Runner request failed. HTTP " + response.status;
+                    result.error ||
+                    result.message ||
+                    "Runner request failed. HTTP " +
+                    response.status;
                 return;
             }
 
-            const result = await response.json();
-            if (result.success) {
-                output.textContent = result.output ||
-                    "Program finished with no console output.";
-            } else {
-                output.textContent = result.error ||
-                    "Java execution failed. Check that the Java Runner is running.";
-            }
-        } catch (error) {
             output.textContent =
-                "Unable to contact Java Runner: " + error.message;
+                [result.output, result.error]
+                    .filter(Boolean)
+                    .join("\n") ||
+                "Program finished with no console output.";
+
+        } catch (error) {
+            console.error("Teacher Java run error:", error);
+
+            output.textContent =
+                "Unable to contact Java Runner: " +
+                error.message;
 
         } finally {
-            button.disabled = false;
-            button.textContent = "▶ Run Java";
+            running = false;
+            updateRunButton();
         }
     }
+
+
+    // --------------------------------------------------
+    // INITIALIZE PAGE
+    // --------------------------------------------------
+
+    switchFile("Main.java");
+    updateRunButton();
+
 </script>
 
 </body>
