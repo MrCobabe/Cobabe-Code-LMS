@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
@@ -8,14 +9,16 @@
 
     <meta name="viewport"
           content="width=device-width, initial-scale=1">
+
     <title>Student Dashboard | Cobabe Code LMS</title>
+
     <link rel="stylesheet" th:href="@{/style.css}">
+
     <style>
         body {
             background: #0f172a;
             color: #f8fafc;
             font-family: "Segoe UI", Arial, sans-serif;
-
         }
 
         .container {
@@ -89,10 +92,7 @@
             color: white;
         }
 
-        /* Student dashboard personalized heading */
-
-
-        /* Personalized student dashboard header */
+        /* Student dashboard heading */
 
         .student-heading {
             flex: 1;
@@ -124,7 +124,7 @@
             padding: 0;
         }
 
-        /* Compact Java Sandbox section */
+        /* Java Sandbox section */
 
         .sandbox-section {
             display: flex;
@@ -144,8 +144,6 @@
             color: #94a3b8;
             font-size: 15px;
         }
-
-        /* Java Sandbox buttons */
 
         .sandbox-actions {
             display: flex;
@@ -180,28 +178,98 @@
             background: #475569;
         }
 
+        /* ========================================
+           ULTRA-COMPACT COMPLETED ASSIGNMENTS
+           ======================================== */
+
+        .assignment.completed-assignment {
+            padding: 5px 12px;
+            margin-bottom: 4px;
+            min-height: 0;
+            gap: 10px;
+            flex-wrap: nowrap;
+        }
+
+        .completed-assignment > div {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .completed-assignment h3 {
+            margin: 0;
+            font-size: 14px;
+            line-height: 20px;
+        }
+
+        .completed-assignment > div > div {
+            margin: 0 !important;
+        }
+
+        .completed-assignment > div > div span {
+            padding: 2px 7px !important;
+            font-size: 11px !important;
+            white-space: nowrap;
+        }
+
+        .completed-assignment .button {
+            padding: 4px 10px;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .completed-assignment .muted {
+            display: none;
+        }
+
+        /* Keep compact rows usable on smaller screens */
+
+        @media (max-width: 600px) {
+            .completed-assignment h3 {
+                font-size: 12px;
+            }
+
+            .completed-assignment > div {
+                gap: 6px;
+            }
+
+            .completed-assignment .button {
+                padding: 4px 7px;
+            }
+        }
 
     </style>
 </head>
+
 <body>
+
 <main class="container">
+
+    <!-- Success message -->
+
     <div th:if="${success}"
          style="background:#14532d;
-            color:#dcfce7;
-            padding:14px;
-            border-radius:8px;
-            margin-bottom:20px;"
+                color:#dcfce7;
+                padding:14px;
+                border-radius:8px;
+                margin-bottom:20px;"
          th:text="${success}">
     </div>
 
+    <!-- Error message -->
+
     <div th:if="${error}"
          style="background:#7f1d1d;
-            color:#fee2e2;
-            padding:14px;
-            border-radius:8px;
-            margin-bottom:20px;"
+                color:#fee2e2;
+                padding:14px;
+                border-radius:8px;
+                margin-bottom:20px;"
          th:text="${error}">
     </div>
+
+    <!-- Student header -->
+
     <header>
 
         <div class="student-heading">
@@ -219,23 +287,26 @@
         </div>
 
         <a th:href="@{/student/password}">
-            <button class="button" type="submit">
+            <button class="button" type="button">
                 Change Password
             </button>
         </a>
+
         <form th:action="@{/logout}" method="post">
             <button class="button logout" type="submit">
                 Log Out
             </button>
         </form>
+
     </header>
 
-
+    <!-- Java Sandbox -->
 
     <section class="card sandbox-section">
 
         <div class="sandbox-info">
             <h2>💻 Java Sandbox</h2>
+
             <p>
                 Experiment with Java and save multiple programs.
             </p>
@@ -258,9 +329,12 @@
 
     </section>
 
-
+    <!-- ========================================
+         STUDENT ASSIGNMENTS
+         ======================================== -->
 
     <section id="assignments">
+
         <h2>My Assignments</h2>
 
         <p class="muted"
@@ -270,74 +344,100 @@
         </p>
 
         <div class="assignment"
-             th:each="assignment : ${assignments}">
+             th:each="assignment : ${assignments}"
+             th:classappend="${assignmentStatuses[assignment.id] == 'GRADED_100'} ? ' completed-assignment' : ''">
 
             <div>
+
                 <h3 th:text="${assignment.title}">
                     Assignment Title
                 </h3>
+
+                <!-- Assignment status badges -->
+
                 <div style="margin:10px 0;">
 
-    <span th:if="${assignmentStatuses[assignment.id] == 'IN_PROGRESS'}"
-          style="display:inline-block;
-                 padding:6px 12px;
-                 border-radius:20px;
-                 background:#334155;
-                 color:#e2e8f0;
-                 font-size:13px;
-                 font-weight:bold;">
-        In Progress
-    </span>
+                    <!-- In progress -->
+
+                    <span th:if="${assignmentStatuses[assignment.id] == 'IN_PROGRESS'}"
+                          style="display:inline-block;
+                                 padding:6px 12px;
+                                 border-radius:20px;
+                                 background:#334155;
+                                 color:#e2e8f0;
+                                 font-size:13px;
+                                 font-weight:bold;">
+                        In Progress
+                    </span>
+
+                    <!-- Submitted -->
 
                     <span th:if="${assignmentStatuses[assignment.id] == 'SUBMITTED'}"
                           style="display:inline-block;
-                 padding:6px 12px;
-                 border-radius:20px;
-                 background:#1e40af;
-                 color:#dbeafe;
-                 font-size:13px;
-                 font-weight:bold;">
-        Submitted
-    </span>
+                                 padding:6px 12px;
+                                 border-radius:20px;
+                                 background:#1e40af;
+                                 color:#dbeafe;
+                                 font-size:13px;
+                                 font-weight:bold;">
+                        Submitted
+                    </span>
+
+                    <!-- Completed with 100% -->
 
                     <span th:if="${assignmentStatuses[assignment.id] == 'GRADED_100'}"
                           style="display:inline-block;
-                 padding:6px 12px;
-                 border-radius:20px;
-                 background:#166534;
-                 color:#dcfce7;
-                 font-size:13px;
-                 font-weight:bold;">
-        ✓ Graded 100%
-    </span>
+                                 padding:6px 12px;
+                                 border-radius:20px;
+                                 background:#166534;
+                                 color:#dcfce7;
+                                 font-size:13px;
+                                 font-weight:bold;">
+                        ✓ Graded 100%
+                    </span>
+
+                    <!-- Graded but needs improvement -->
 
                     <span th:if="${assignmentStatuses[assignment.id] == 'NEEDS_WORK'}"
                           style="display:inline-block;
-                 padding:6px 12px;
-                 border-radius:20px;
-                 background:#9a3412;
-                 color:#ffedd5;
-                 font-size:13px;
-                 font-weight:bold;">
-        Graded — Needs Work
-    </span>
+                                 padding:6px 12px;
+                                 border-radius:20px;
+                                 background:#9a3412;
+                                 color:#ffedd5;
+                                 font-size:13px;
+                                 font-weight:bold;">
+                        Graded — Needs Work
+                    </span>
 
                 </div>
+
+                <!-- Hide description when graded 100% -->
+
                 <p class="muted"
+                   th:unless="${assignmentStatuses[assignment.id] == 'GRADED_100'}"
                    th:text="${assignment.description}">
                     Assignment instructions
                 </p>
+
             </div>
 
+            <!-- Open assignment button -->
+
             <a class="button"
-               th:href="@{/student/assignment/{id}
-                        (id=${assignment.id})}">
+               th:href="@{/student/assignment/{id}(id=${assignment.id})}"
+               th:text="${assignmentStatuses[assignment.id] == 'GRADED_100'} ? 'Open' : 'Open Assignment'">
                 Open Assignment
             </a>
+
         </div>
+
     </section>
 
 </main>
+
+<!-- ========================================
+     JAVA SANDBOX CREATION
+     ======================================== -->
 
 <script th:inline="javascript">
 
@@ -414,7 +514,6 @@
     }
 
 </script>
-
 
 </body>
 </html>
