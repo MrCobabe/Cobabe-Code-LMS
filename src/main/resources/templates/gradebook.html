@@ -470,12 +470,16 @@
                     <button type="button"
                             class="grade-cell"
                             th:classappend="${cell.status}"
+
                             th:attr="data-submission-id=${cell.submissionId},
-                 data-student=${row.name},
-                 data-assignment=${assignments[stat.index].title},
-                 data-status=${cell.status},
-                 data-score=${cell.score},
-                 data-max=${cell.maxPoints}"
+         data-student-id=${row.studentId},
+         data-assignment-id=${cell.assignmentId},
+         data-student=${row.name},
+         data-assignment=${assignments[stat.index].title},
+         data-status=${cell.status},
+         data-score=${cell.score},
+         data-max=${cell.maxPoints}"
+
                             onclick="openSubmission(this)">
 
                         <span th:if="${cell.status == 'missing'}">
@@ -722,19 +726,40 @@
 </main>
 
 <script>
+
     function openSubmission(button) {
 
         const submissionId = button.dataset.submissionId;
+        const studentId = button.dataset.studentId;
+        const assignmentId = button.dataset.assignmentId;
 
-        if (!submissionId) {
-            alert("This student has not submitted this assignment yet.");
+        const gradebookBase = document.querySelector(
+            'meta[name="gradebook-base"]'
+        ).content;
+
+        const teacherBase = gradebookBase.replace(
+            /\/gradebook\/?$/,
+            ""
+        );
+
+        if (submissionId) {
+            window.location.href =
+                teacherBase + "/submission/" +
+                encodeURIComponent(submissionId);
             return;
         }
 
-        window.location.href =
-            "/teacher/submission/" +
-            encodeURIComponent(submissionId);
+        if (studentId && assignmentId) {
+            window.location.href =
+                teacherBase + "/submission/draft/" +
+                encodeURIComponent(studentId) + "/" +
+                encodeURIComponent(assignmentId);
+            return;
+        }
+
+        alert("Unable to open this student's assignment.");
     }
+
 
     function openEditAssignment(button) {
 

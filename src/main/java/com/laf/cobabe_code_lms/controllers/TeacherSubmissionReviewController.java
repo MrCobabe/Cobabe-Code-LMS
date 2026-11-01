@@ -17,10 +17,16 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-
+import com.laf.cobabe_code_lms.models.AssignmentDraft;
+import com.laf.cobabe_code_lms.models.AssignmentDraftSourceFile;
+import com.laf.cobabe_code_lms.repositories.AssignmentDrafts;
+import com.laf.cobabe_code_lms.repositories.AssignmentDraftSourceFiles;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.RejectedExecutionException;
+import com.laf.cobabe_code_lms.models.SubmissionSourceFile;
+import java.time.Instant;
+import java.util.Objects;
 
 @Controller
 @RequestMapping("/teacher/submission")
@@ -29,14 +35,18 @@ public class TeacherSubmissionReviewController {
     private final Submissions submissions;
     private final JavaExecutionService executionService;
     private final SubmissionSourceFiles submissionSourceFiles;
+    private final AssignmentDrafts assignmentDrafts;
+    private final AssignmentDraftSourceFiles assignmentDraftSourceFiles;
 
     public TeacherSubmissionReviewController(
             Submissions submissions,
-            JavaExecutionService executionService, SubmissionSourceFiles submissionSourceFiles) {
+            JavaExecutionService executionService, SubmissionSourceFiles submissionSourceFiles, AssignmentDrafts assignmentDrafts, AssignmentDraftSourceFiles assignmentDraftSourceFiles) {
 
         this.submissions = submissions;
         this.executionService = executionService;
         this.submissionSourceFiles = submissionSourceFiles;
+        this.assignmentDrafts = assignmentDrafts;
+        this.assignmentDraftSourceFiles = assignmentDraftSourceFiles;
     }
 
     private void requireTeacher(Authentication authentication) {
@@ -87,11 +97,169 @@ public class TeacherSubmissionReviewController {
         }
 
         model.addAttribute("submission", submission);
+        model.addAttribute("assignment", submission.assignment);
         model.addAttribute("sourceFiles", sourceFiles);
 
         return "review";
     }
 
+    @GetMapping("/draft/{studentId}/{assignmentId}")
+    @Transactional(readOnly = true)
+    public String reviewDraft(
+            @PathVariable String studentId,
+            @PathVariable Long assignmentId,
+            Authentication authentication,
+            Model model) {
+
+        requireTeacher(authentication);
+
+        AssignmentDraft draft = assignmentDrafts
+                .findByStudent_IdAndAssignment_Id(
+                        studentId, assignmentId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "No saved draft found"));
+
+        // Ensure the assignment belongs to the student's class.
+        if (draft.student.classPeriod == null
+                || draft.assignment.classPeriods.stream()
+                .noneMatch(period ->
+                        java.util.Objects.equals(
+                                period.id,
+                                draft.student.classPeriod.id))) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Student is not assigned this work");
+        }
+
+        Map<String, String> sourceFiles = new LinkedHashMap<>();
+        sourceFiles.put("Main.java", draft.code);
+
+        for (AssignmentDraftSourceFile file :
+                assignmentDraftSourceFiles
+                        .findByDraft_IdOrderByFilenameAsc(draft.id)) {
+
+            sourceFiles.put(
+                    file.getFilename(),
+                    file.getCode());
+        }
+
+        model.addAttribute("draft", draft);
+        model.addAttribute("assignment", draft.assignment);
+        model.addAttribute("sourceFiles", sourceFiles);
+        model.addAttribute("draftMode", true);
+
+        return "review";
+    }
+
+
+    @PostMapping("/draft/{studentId}/{assignmentId}/grade")
+    @Transactional
+    public String gradeDraft(
+            @PathVariable String studentId,
+            @PathVariable Long assignmentId,
+            @RequestParam int grade,
+            @RequestParam(defaultValue = "") String feedback,
+            Authentication authentication,
+            RedirectAttributes redirect) {
+
+        requireTeacher(authentication);
+
+        AssignmentDraft draft = assignmentDrafts
+                .findByStudent_IdAndAssignment_Id(
+                        studentId, assignmentId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "No saved draft found"));
+
+        // Verify that the assignment belongs to
+        // the student's class period.
+        if (draft.student.classPeriod == null ||
+                draft.assignment.classPeriods.stream()
+                        .noneMatch(period ->
+                                Objects.equals(
+                                        period.id,
+                                        draft.student.classPeriod.id))) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Student is not assigned this work");
+        }
+
+        String draftUrl =
+                "/teacher/submission/draft/" +
+                        studentId + "/" + assignmentId;
+
+        int maxPoints = draft.assignment.maxPoints;
+
+        // Validate grade.
+        if (grade < 0 || grade > maxPoints) {
+
+            redirect.addFlashAttribute(
+                    "error",
+                    "Grade must be between 0 and " + maxPoints);
+
+            return "redirect:" + draftUrl;
+        }
+
+        // Validate feedback.
+        if (feedback.length() > 4000) {
+
+            redirect.addFlashAttribute(
+                    "error",
+                    "Feedback must be 4000 characters or fewer.");
+
+            return "redirect:" + draftUrl;
+        }
+
+        // Load additional Java files from the saved draft.
+        var draftFiles = assignmentDraftSourceFiles
+                .findByDraft_IdOrderByFilenameAsc(draft.id);
+
+        // Create a normal submission containing
+        // a snapshot of the student's saved code.
+        Submission submission = new Submission();
+
+        submission.student = draft.student;
+        submission.assignment = draft.assignment;
+        submission.code =
+                draft.code == null ? "" : draft.code;
+
+        submission.submittedAt = Instant.now();
+        submission.grade = grade;
+        submission.feedback = feedback;
+
+        // Save the submission first so it has an ID.
+        submission = submissions.saveAndFlush(submission);
+
+        // Copy all additional Java files into the
+        // submission snapshot.
+        for (AssignmentDraftSourceFile file : draftFiles) {
+
+            if ("Main.java".equals(file.getFilename())) {
+                continue;
+            }
+
+            submissionSourceFiles.save(
+                    new SubmissionSourceFile(
+                            submission,
+                            file.getFilename(),
+                            file.getCode()
+                    )
+            );
+        }
+
+        redirect.addFlashAttribute(
+                "success",
+                "Draft graded successfully!");
+
+        Long classId = draft.student.classPeriod.id;
+
+        return "redirect:/teacher/gradebook?classId=" + classId;
+    }
 
     @PostMapping("/{id}/grade")
     @Transactional
