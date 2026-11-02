@@ -4,6 +4,7 @@ package com.laf.cobabe_code_lms.repositories;
 import com.laf.cobabe_code_lms.models.AssignmentDraft;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface AssignmentDrafts
@@ -14,4 +15,8 @@ public interface AssignmentDrafts
             Long assignmentId);
 
     long deleteByStudent_Id(String studentId);
+
+    long deleteByAssignment_Id(Long assignmentId);
+
+    List<AssignmentDraft> findByAssignment_Id(Long assignmentId);
 }
