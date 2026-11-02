@@ -301,11 +301,15 @@
             resize: vertical;
         }
 
-        .assignment-dialog .code-input {
-            min-height: 210px;
-            font-family: Consolas, monospace;
-            tab-size: 4;
-        }
+        .starter-editor { border: 1px solid #475569; border-radius: 6px; overflow: hidden; }
+        .starter-toolbar { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px; background: #0f172a; }
+        .starter-tabs { display: flex; gap: 5px; flex: 1; flex-wrap: wrap; }
+        .starter-toolbar button { background: #334155; color: white; border: 1px solid #475569; border-radius: 4px; padding: 7px 9px; cursor: pointer; }
+        .starter-toolbar button.active { background: #f97316; color: #111827; }
+        .starter-toolbar button:disabled { opacity: .5; cursor: not-allowed; }
+        .starter-monaco { height: 320px; min-height: 320px; width: 100%; }
+        .starter-hint { color: #94a3b8; font-size: 12px; margin: 6px 0 0; }
+        .starter-hidden { display: none !important; }
 
         .class-list {
             display: flex;
@@ -397,7 +401,7 @@
 
             <button type="button"
                     class="button primary"
-                    onclick="document.getElementById('assignmentDialog').showModal()">
+                    onclick="openCreateAssignment()">
                 + Assignment
             </button>
 
@@ -470,12 +474,16 @@
                     <button type="button"
                             class="grade-cell"
                             th:classappend="${cell.status}"
+
                             th:attr="data-submission-id=${cell.submissionId},
-                 data-student=${row.name},
-                 data-assignment=${assignments[stat.index].title},
-                 data-status=${cell.status},
-                 data-score=${cell.score},
-                 data-max=${cell.maxPoints}"
+         data-student-id=${row.studentId},
+         data-assignment-id=${cell.assignmentId},
+         data-student=${row.name},
+         data-assignment=${assignments[stat.index].title},
+         data-status=${cell.status},
+         data-score=${cell.score},
+         data-max=${cell.maxPoints}"
+
                             onclick="openSubmission(this)">
 
                         <span th:if="${cell.status == 'missing'}">
@@ -550,11 +558,18 @@
 
             <label for="editCode">Java Starter Code</label>
 
-            <textarea id="editCode"
-                      name="starterCode"
-                      class="code-input"
-                      maxlength="12000"
-                      spellcheck="false"></textarea>
+            <textarea id="editCode" name="starterCode" class="starter-hidden"></textarea>
+            <input type="hidden" id="editStarterFilesJson" name="starterFilesJson">
+            <div class="starter-editor">
+                <div class="starter-toolbar">
+                    <div id="editStarterTabs" class="starter-tabs" role="tablist"></div>
+                    <button type="button" onclick="addStarterFile('edit')">+ File</button>
+                    <button type="button" onclick="renameStarterFile('edit')">Rename</button>
+                    <button type="button" onclick="deleteStarterFile('edit')">Delete</button>
+                </div>
+                <div id="editStarterEditor" class="starter-monaco"></div>
+            </div>
+            <p class="starter-hint">Main.java is required. Up to 20 Java files per assignment.</p>
 
             <label>Assigned Class Periods</label>
 
@@ -656,15 +671,22 @@
                 Java Starter Code
             </label>
 
-            <textarea id="assignmentCode"
-                      name="starterCode"
-                      class="code-input"
-                      maxlength="12000"
-                      spellcheck="false">public class Main {
+            <textarea id="assignmentCode" name="starterCode" class="starter-hidden">public class Main {
     public static void main(String[] args) {
 
     }
 }</textarea>
+            <input type="hidden" id="createStarterFilesJson" name="starterFilesJson">
+            <div class="starter-editor">
+                <div class="starter-toolbar">
+                    <div id="createStarterTabs" class="starter-tabs" role="tablist"></div>
+                    <button type="button" onclick="addStarterFile('create')">+ File</button>
+                    <button type="button" onclick="renameStarterFile('create')">Rename</button>
+                    <button type="button" onclick="deleteStarterFile('create')">Delete</button>
+                </div>
+                <div id="createStarterEditor" class="starter-monaco"></div>
+            </div>
+            <p class="starter-hint">Main.java is required. Up to 20 Java files per assignment.</p>
 
             <label>Assign to Class Periods</label>
 
@@ -721,20 +743,239 @@
 
 </main>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js"></script>
+<script th:inline="javascript">
+    const starterFilesByAssignment = /*[[${starterFilesByAssignment}]]*/ {};
+</script>
 <script>
+    // The two dialogs share the same file-management implementation.
+    const starterStates = {
+        create: { editor: null, models: new Map(), active: "Main.java" },
+        edit: { editor: null, models: new Map(), active: "Main.java" }
+    };
+    let monacoReadyPromise = null;
+
+    function ensureMonaco() {
+        if (!monacoReadyPromise) {
+            monacoReadyPromise = new Promise((resolve, reject) => {
+                if (typeof require === "undefined") {
+                    reject(new Error("Monaco loader unavailable"));
+                    return;
+                }
+                require.config({ paths: {
+                        vs: "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs"
+                    }});
+                require(["vs/editor/editor.main"], resolve, reject);
+            });
+        }
+        return monacoReadyPromise;
+    }
+
+    function validStarterFilename(name) {
+        return typeof name === "string" && name.length <= 120
+            && /^[A-Za-z_$][A-Za-z0-9_$]*\.java$/.test(name);
+    }
+
+    function starterFiles(kind) {
+        const files = {};
+        for (const [name, model] of starterStates[kind].models) {
+            files[name] = model.getValue();
+        }
+        return files;
+    }
+
+    function renderStarterTabs(kind) {
+        const state = starterStates[kind];
+        const tabs = document.getElementById(kind + "StarterTabs");
+        tabs.replaceChildren();
+        for (const name of state.models.keys()) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.textContent = name;
+            button.className = name === state.active ? "active" : "";
+            button.setAttribute("role", "tab");
+            button.setAttribute("aria-selected", String(name === state.active));
+            button.onclick = () => switchStarterFile(kind, name);
+            tabs.appendChild(button);
+        }
+        const buttons = tabs.parentElement.querySelectorAll(":scope > button");
+        buttons[0].disabled = state.models.size >= 20;
+        buttons[1].disabled = state.active === "Main.java";
+        buttons[2].disabled = state.active === "Main.java";
+    }
+
+    function switchStarterFile(kind, name) {
+        const state = starterStates[kind];
+        if (!state.editor || !state.models.has(name)) return;
+        state.active = name;
+        state.editor.setModel(state.models.get(name));
+        renderStarterTabs(kind);
+        state.editor.layout();
+    }
+
+    function createStarterModel(kind, name, code) {
+        const state = starterStates[kind];
+        const uri = monaco.Uri.parse(
+            "inmemory://assignment-" + kind + "/" + encodeURIComponent(name));
+        const model = monaco.editor.createModel(code, "java", uri);
+        state.models.set(name, model);
+    }
+
+    async function openStarterEditor(kind, files) {
+        const state = starterStates[kind];
+        try {
+            await ensureMonaco();
+            const dialog = document.getElementById(
+                kind === "create" ? "assignmentDialog" : "editAssignmentDialog");
+            // The dialog may have been closed while Monaco was loading.
+            if (!dialog.open) return;
+            if (!state.editor) {
+                state.editor = monaco.editor.create(
+                    document.getElementById(kind + "StarterEditor"), {
+                        language: "java", theme: "vs-dark", automaticLayout: true,
+                        minimap: { enabled: false }, fontSize: 14,
+                        tabSize: 4, scrollBeyondLastLine: false
+                    });
+            }
+            state.editor.setModel(null);
+            for (const model of state.models.values()) model.dispose();
+            state.models.clear();
+            const safeFiles = files && typeof files === "object" ? files : {};
+            const names = Object.keys(safeFiles).filter(validStarterFilename)
+                .sort((a, b) => a === "Main.java" ? -1 : b === "Main.java" ? 1 : a.localeCompare(b));
+            if (!names.includes("Main.java")) names.unshift("Main.java");
+            for (const name of names) {
+                createStarterModel(kind, name,
+                    typeof safeFiles[name] === "string" ? safeFiles[name] : "");
+            }
+            switchStarterFile(kind, "Main.java");
+            requestAnimationFrame(() => state.editor.layout());
+        } catch (error) {
+            console.error("Could not initialize starter editor", error);
+            alert("Java editor failed to load. Please reload before saving.");
+        }
+    }
+
+    function addStarterFile(kind) {
+        const state = starterStates[kind];
+        if (!state.editor || state.models.size >= 20) return;
+        const name = prompt("New Java filename (example: Player.java):");
+        if (name === null) return;
+        if (!validStarterFilename(name) || state.models.has(name)) {
+            alert("Enter a unique .java filename without folders.");
+            return;
+        }
+        createStarterModel(kind, name,
+            "public class " + name.slice(0, -5) + " {\n\n}\n");
+        switchStarterFile(kind, name);
+    }
+
+    function renameStarterFile(kind) {
+        const state = starterStates[kind];
+        if (!state.editor || state.active === "Main.java") return;
+        const oldName = state.active;
+        const name = prompt("Rename Java file:", oldName);
+        if (name === null || name === oldName) return;
+        if (!validStarterFilename(name) || state.models.has(name)) {
+            alert("Enter a unique .java filename without folders.");
+            return;
+        }
+        const oldModel = state.models.get(oldName);
+        const code = oldModel.getValue();
+        state.editor.setModel(null);
+        state.models.delete(oldName);
+        oldModel.dispose();
+        createStarterModel(kind, name, code);
+        switchStarterFile(kind, name);
+    }
+
+    function deleteStarterFile(kind) {
+        const state = starterStates[kind];
+        if (!state.editor || state.active === "Main.java") return;
+        const name = state.active;
+        if (!confirm("Delete " + name + " from this assignment?")) return;
+        state.editor.setModel(null);
+        state.models.get(name).dispose();
+        state.models.delete(name);
+        switchStarterFile(kind, "Main.java");
+    }
+
+    function openCreateAssignment() {
+        document.getElementById("assignmentDialog").showModal();
+        openStarterEditor("create", {
+            "Main.java": document.getElementById("assignmentCode").value
+        });
+    }
+
+    function syncStarterForm(kind) {
+        const state = starterStates[kind];
+        if (!state.editor || !state.models.has("Main.java")) {
+            alert("Java editor is not ready yet.");
+            return false;
+        }
+        const files = starterFiles(kind);
+        if (Object.keys(files).length > 20 || Object.values(files).some(
+            code => typeof code !== "string" || code.length > 12000)) {
+            alert("Each Java file must be at most 12,000 characters (20 files maximum).");
+            return false;
+        }
+        const prefix = kind === "create" ? "assignment" : "edit";
+        document.getElementById(prefix + "Code").value = files["Main.java"];
+        const additional = { ...files };
+        delete additional["Main.java"];
+        document.getElementById(
+            kind === "create" ? "createStarterFilesJson" : "editStarterFilesJson"
+        ).value = JSON.stringify(additional);
+        return true;
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        document.querySelector("#assignmentDialog form").addEventListener(
+            "submit", event => {
+                if (!syncStarterForm("create")) event.preventDefault();
+            });
+        document.getElementById("editAssignmentForm").addEventListener(
+            "submit", event => {
+                if (!syncStarterForm("edit")) event.preventDefault();
+            });
+    });
+</script>
+
+<script>
+
     function openSubmission(button) {
 
         const submissionId = button.dataset.submissionId;
+        const studentId = button.dataset.studentId;
+        const assignmentId = button.dataset.assignmentId;
 
-        if (!submissionId) {
-            alert("This student has not submitted this assignment yet.");
+        const gradebookBase = document.querySelector(
+            'meta[name="gradebook-base"]'
+        ).content;
+
+        const teacherBase = gradebookBase.replace(
+            /\/gradebook\/?$/,
+            ""
+        );
+
+        if (submissionId) {
+            window.location.href =
+                teacherBase + "/submission/" +
+                encodeURIComponent(submissionId);
             return;
         }
 
-        window.location.href =
-            "/teacher/submission/" +
-            encodeURIComponent(submissionId);
+        if (studentId && assignmentId) {
+            window.location.href =
+                teacherBase + "/submission/draft/" +
+                encodeURIComponent(studentId) + "/" +
+                encodeURIComponent(assignmentId);
+            return;
+        }
+
+        alert("Unable to open this student's assignment.");
     }
+
 
     function openEditAssignment(button) {
 
@@ -796,6 +1037,10 @@
         });
 
         dialog.showModal();
+        const storedFiles = starterFilesByAssignment[String(assignmentId)] || {
+            "Main.java": button.dataset.code || ""
+        };
+        openStarterEditor('edit', storedFiles);
     }
 
 </script>

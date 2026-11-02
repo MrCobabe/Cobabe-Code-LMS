@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>Review Submission | Cobabe Code LMS</title>
+    <title>Review Student Work | Cobabe Code LMS</title>
 
     <meta name="_csrf" th:content="${_csrf.token}">
     <meta name="_csrf_header" th:content="${_csrf.headerName}">
@@ -229,21 +229,28 @@
         ← Back to Gradebook
     </a>
 
-    <h1>Review Submission</h1>
+    <h1 th:text="${draftMode == true} ? 'Review Student Progress' : 'Review Submission'">
+        Review Submission
+    </h1>
 
     <p>
         <strong>Student:</strong>
-        <span th:text="${submission.student.name}"></span>
+        <span th:text="${draftMode == true ? student.name : submission.student.name}"></span>
+    </p>
+
+    <p th:if="${notStarted == true}"
+       style="color:#fbbf24; font-weight:bold;">
+        Status: Not Started — No saved student work found.
     </p>
 
     <p>
         <strong>Assignment:</strong>
-        <span th:text="${submission.assignment.title}"></span>
+        <span th:text="${assignment.title}"></span>
     </p>
 
     <p>
         <strong>Maximum Points:</strong>
-        <span th:text="${submission.assignment.maxPoints}"></span>
+        <span th:text="${assignment.maxPoints}"></span>
     </p>
 
     <!-- ASSIGNMENT INSTRUCTIONS -->
@@ -253,29 +260,37 @@
         <h2>Assignment Instructions</h2>
 
         <div class="assignment-instructions"
-             th:if="${submission.assignment.description != null
-                 and !#strings.isEmpty(submission.assignment.description)}"
-             th:text="${submission.assignment.description}">
+             th:if="${assignment.description != null
+                 and !#strings.isEmpty(assignment.description)}"
+             th:text="${assignment.description}">
             Assignment instructions will appear here.
         </div>
 
         <p class="assignment-instructions-empty"
-           th:if="${submission.assignment.description == null
-               or #strings.isEmpty(submission.assignment.description)}">
+           th:if="${assignment.description == null
+               or #strings.isEmpty(assignment.description)}">
             No instructions were provided for this assignment.
         </p>
 
     </div>
 
-    <!-- SUBMITTED JAVA FILES -->
+    <!-- JAVA FILES -->
 
     <div class="card">
 
-        <h2>Submitted Java Code</h2>
+        <h2 th:text="${notStarted == true}
+        ? 'Assignment Starter Code'
+        : (${draftMode == true} ? 'Saved Java Code' : 'Submitted Java Code')">
+            Java Code
+        </h2>
 
-        <p class="muted">
-            These are the student's submitted Java files.
-            They are read-only.
+        <p class="muted"
+           th:text="${notStarted == true}
+       ? 'This student has not saved any work. Showing the original starter code for reference.'
+       : (${draftMode == true}
+           ? 'These are the student\'s latest saved Java files. They are read-only.'
+           : 'These are the student\'s submitted Java files. They are read-only.')">
+            These Java files are read-only.
         </p>
 
         <!-- FILE TABS -->
@@ -283,7 +298,7 @@
         <div id="fileTabs"
              class="file-tabs"
              role="tablist"
-             aria-label="Submitted Java files">
+             aria-label="Student Java files">
 
             <button type="button"
                     class="file-tab"
@@ -306,8 +321,8 @@
             </span>
 
             <span class="file-count"
-                  th:text="${#maps.size(sourceFiles)} + ' Java file(s) submitted'">
-                1 Java file submitted
+                  th:text="${#maps.size(sourceFiles)} + ' Java file(s)'">
+                1 Java file
             </span>
         </div>
 
@@ -316,7 +331,7 @@
         <textarea id="code"
                   readonly
                   spellcheck="false"
-                  th:text="${submission.code}"></textarea>
+                  th:text="${sourceFiles['Main.java']}"></textarea>
 
         <!-- RUN STUDENT CODE -->
 
@@ -341,14 +356,13 @@
 
         </div>
 
-
         <h2>Console Output</h2>
 
         <pre id="output">Click Run Java to test the student's program.</pre>
 
     </div>
 
-    <!-- GRADE ASSIGNMENT -->
+    <!-- GRADE ASSIGNMENT: SUBMITTED WORK ONLY FOR NOW -->
 
     <div class="card">
 
@@ -358,8 +372,14 @@
            th:text="${error}"
            style="color:#fca5a5;"></p>
 
-        <form th:action="@{/teacher/submission/{id}/grade(id=${submission.id})}"
+
+        <form th:action="${draftMode == true}
+        ? @{/teacher/submission/draft/{studentId}/{assignmentId}/grade(
+              studentId=${student.id},
+              assignmentId=${assignment.id})}
+        : @{/teacher/submission/{id}/grade(id=${submission.id})}"
               method="post">
+
 
             <input type="hidden"
                    th:name="${_csrf.parameterName}"
@@ -373,8 +393,8 @@
                    name="grade"
                    type="number"
                    min="0"
-                   th:max="${submission.assignment.maxPoints}"
-                   th:value="${submission.grade}"
+                   th:max="${assignment.maxPoints}"
+                   th:value="${draftMode == true ? null : submission.grade}"
                    required>
 
             <label for="feedback">
@@ -385,7 +405,7 @@
                       name="feedback"
                       rows="6"
                       maxlength="4000"
-                      th:text="${submission.feedback}"
+                      th:text="${draftMode == true ? '' : submission.feedback}"
                       placeholder="Write feedback for the student..."></textarea>
 
             <div class="actions">
@@ -439,9 +459,8 @@
     const output =
         document.getElementById("output");
 
-
     // --------------------------------------------------
-    // SWITCH BETWEEN SUBMITTED JAVA FILES
+    // SWITCH BETWEEN JAVA FILES
     // --------------------------------------------------
 
     function switchFile(filename) {
@@ -496,7 +515,6 @@
     // RUN STUDENT CODE
     // --------------------------------------------------
 
-
     async function runStudentCode() {
 
         if (running) {
@@ -507,7 +525,7 @@
             submittedFiles, "Main.java"
         )) {
             output.textContent =
-                "This submission does not contain Main.java.";
+                "This project does not contain Main.java.";
             return;
         }
 
@@ -530,7 +548,7 @@
         output.textContent =
             "Compiling and running " +
             Object.keys(submittedFiles).length +
-            " submitted Java file(s)...";
+            " Java file(s)...";
 
         try {
             const response = await fetch(runUrl, {
@@ -574,7 +592,6 @@
             updateRunButton();
         }
     }
-
 
     // --------------------------------------------------
     // INITIALIZE PAGE

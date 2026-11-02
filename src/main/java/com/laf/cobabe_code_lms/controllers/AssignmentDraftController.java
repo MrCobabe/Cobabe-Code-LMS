@@ -134,11 +134,40 @@ public class AssignmentDraftController {
                             "files", files
                     );
 
-                }).orElseGet(() -> Map.of(
-                        "found", false,
-                        "code", "",
-                        "files", Map.of()
-                ))
+                }).orElseGet(() -> {
+
+                    Assignment assignment = access.assignment();
+
+                    Map<String, String> starterFiles = new LinkedHashMap<>();
+
+                    // Main.java is stored in the original starterCode field.
+                    starterFiles.put(
+                            "Main.java",
+                            assignment.starterCode != null
+                                    ? assignment.starterCode
+                                    : ""
+                    );
+
+                    // Add the teacher's additional starter files.
+                    if (assignment.starterFiles != null) {
+                        for (Map.Entry<String, String> entry :
+                                assignment.starterFiles.entrySet()) {
+
+                            if (!"Main.java".equals(entry.getKey())) {
+                                starterFiles.put(
+                                        entry.getKey(),
+                                        entry.getValue()
+                                );
+                            }
+                        }
+                    }
+
+                    return Map.of(
+                            "found", false,
+                            "code", starterFiles.get("Main.java"),
+                            "files", starterFiles
+                    );
+                })
         );
     }
 
