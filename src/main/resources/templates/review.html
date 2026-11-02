@@ -235,7 +235,12 @@
 
     <p>
         <strong>Student:</strong>
-        <span th:text="${draftMode == true ? draft.student.name : submission.student.name}"></span>
+        <span th:text="${draftMode == true ? student.name : submission.student.name}"></span>
+    </p>
+
+    <p th:if="${notStarted == true}"
+       style="color:#fbbf24; font-weight:bold;">
+        Status: Not Started — No saved student work found.
     </p>
 
     <p>
@@ -273,15 +278,19 @@
 
     <div class="card">
 
-        <h2 th:text="${draftMode == true} ? 'Saved Java Code' : 'Submitted Java Code'">
-            Submitted Java Code
+        <h2 th:text="${notStarted == true}
+        ? 'Assignment Starter Code'
+        : (${draftMode == true} ? 'Saved Java Code' : 'Submitted Java Code')">
+            Java Code
         </h2>
 
         <p class="muted"
-           th:text="${draftMode == true}
-               ? 'These are the student\'s latest saved Java files. They are read-only.'
-               : 'These are the student\'s submitted Java files. They are read-only.'">
-            These are the student's Java files. They are read-only.
+           th:text="${notStarted == true}
+       ? 'This student has not saved any work. Showing the original starter code for reference.'
+       : (${draftMode == true}
+           ? 'These are the student\'s latest saved Java files. They are read-only.'
+           : 'These are the student\'s submitted Java files. They are read-only.')">
+            These Java files are read-only.
         </p>
 
         <!-- FILE TABS -->
@@ -366,7 +375,7 @@
 
         <form th:action="${draftMode == true}
         ? @{/teacher/submission/draft/{studentId}/{assignmentId}/grade(
-              studentId=${draft.student.id},
+              studentId=${student.id},
               assignmentId=${assignment.id})}
         : @{/teacher/submission/{id}/grade(id=${submission.id})}"
               method="post">

@@ -24,9 +24,12 @@ import com.laf.cobabe_code_lms.repositories.AssignmentDraftSourceFiles;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.RejectedExecutionException;
-import com.laf.cobabe_code_lms.models.SubmissionSourceFile;
 import java.time.Instant;
 import java.util.Objects;
+import com.laf.cobabe_code_lms.models.Student;
+import com.laf.cobabe_code_lms.models.Assignment;
+import com.laf.cobabe_code_lms.repositories.Students;
+import com.laf.cobabe_code_lms.repositories.Assignments;
 
 @Controller
 @RequestMapping("/teacher/submission")
@@ -37,16 +40,20 @@ public class TeacherSubmissionReviewController {
     private final SubmissionSourceFiles submissionSourceFiles;
     private final AssignmentDrafts assignmentDrafts;
     private final AssignmentDraftSourceFiles assignmentDraftSourceFiles;
+    private final Students students;
+    private final Assignments assignments;
 
     public TeacherSubmissionReviewController(
             Submissions submissions,
-            JavaExecutionService executionService, SubmissionSourceFiles submissionSourceFiles, AssignmentDrafts assignmentDrafts, AssignmentDraftSourceFiles assignmentDraftSourceFiles) {
+            JavaExecutionService executionService, SubmissionSourceFiles submissionSourceFiles, AssignmentDrafts assignmentDrafts, AssignmentDraftSourceFiles assignmentDraftSourceFiles, Students students, Assignments assignments) {
 
         this.submissions = submissions;
         this.executionService = executionService;
         this.submissionSourceFiles = submissionSourceFiles;
         this.assignmentDrafts = assignmentDrafts;
         this.assignmentDraftSourceFiles = assignmentDraftSourceFiles;
+        this.students = students;
+        this.assignments = assignments;
     }
 
     private void requireTeacher(Authentication authentication) {
@@ -113,43 +120,58 @@ public class TeacherSubmissionReviewController {
 
         requireTeacher(authentication);
 
-        AssignmentDraft draft = assignmentDrafts
-                .findByStudent_IdAndAssignment_Id(
-                        studentId, assignmentId)
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "No saved draft found"));
+        Student student = students.findById(studentId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Student not found"));
 
-        // Ensure the assignment belongs to the student's class.
-        if (draft.student.classPeriod == null
-                || draft.assignment.classPeriods.stream()
-                .noneMatch(period ->
-                        java.util.Objects.equals(
-                                period.id,
-                                draft.student.classPeriod.id))) {
+        Assignment assignment = assignments.findById(assignmentId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Assignment not found"));
+
+        // Verify the student belongs to a class assigned this work.
+        if (student.classPeriod == null ||
+                assignment.classPeriods.stream().noneMatch(period ->
+                        Objects.equals(period.id, student.classPeriod.id))) {
 
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Student is not assigned this work");
         }
 
+        AssignmentDraft draft = assignmentDrafts
+                .findByStudent_IdAndAssignment_Id(studentId, assignmentId)
+                .orElse(null);
+
         Map<String, String> sourceFiles = new LinkedHashMap<>();
-        sourceFiles.put("Main.java", draft.code);
 
-        for (AssignmentDraftSourceFile file :
-                assignmentDraftSourceFiles
-                        .findByDraft_IdOrderByFilenameAsc(draft.id)) {
+        if (draft != null) {
 
-            sourceFiles.put(
-                    file.getFilename(),
-                    file.getCode());
+            // Show the student's actual saved work.
+            sourceFiles.put("Main.java",
+                    draft.code == null ? "" : draft.code);
+
+            for (AssignmentDraftSourceFile file :
+                    assignmentDraftSourceFiles
+                            .findByDraft_IdOrderByFilenameAsc(draft.id)) {
+
+                if (!"Main.java".equals(file.getFilename())) {
+                    sourceFiles.put(file.getFilename(), file.getCode());
+                }
+            }
+
+        } else {
+
+            // Student hasn't started: show the original starter code.
+            sourceFiles.put("Main.java",
+                    assignment.starterCode == null ? "" : assignment.starterCode);
         }
 
+        model.addAttribute("student", student);
+        model.addAttribute("assignment", assignment);
         model.addAttribute("draft", draft);
-        model.addAttribute("assignment", draft.assignment);
-        model.addAttribute("sourceFiles", sourceFiles);
         model.addAttribute("draftMode", true);
+        model.addAttribute("notStarted", draft == null);
+        model.addAttribute("sourceFiles", sourceFiles);
 
         return "review";
     }
@@ -167,98 +189,92 @@ public class TeacherSubmissionReviewController {
 
         requireTeacher(authentication);
 
-        AssignmentDraft draft = assignmentDrafts
-                .findByStudent_IdAndAssignment_Id(
-                        studentId, assignmentId)
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "No saved draft found"));
+        Student student = students.findById(studentId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Student not found"));
 
-        // Verify that the assignment belongs to
-        // the student's class period.
-        if (draft.student.classPeriod == null ||
-                draft.assignment.classPeriods.stream()
-                        .noneMatch(period ->
-                                Objects.equals(
-                                        period.id,
-                                        draft.student.classPeriod.id))) {
+        Assignment assignment = assignments.findById(assignmentId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Assignment not found"));
+
+        // Ensure this assignment belongs to the student's class.
+        if (student.classPeriod == null ||
+                assignment.classPeriods.stream().noneMatch(period ->
+                        Objects.equals(period.id, student.classPeriod.id))) {
 
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Student is not assigned this work");
         }
 
-        String draftUrl =
-                "/teacher/submission/draft/" +
-                        studentId + "/" + assignmentId;
+        String draftUrl = "/teacher/submission/draft/"
+                + studentId + "/" + assignmentId;
 
-        int maxPoints = draft.assignment.maxPoints;
-
-        // Validate grade.
-        if (grade < 0 || grade > maxPoints) {
-
+        // Validate the grade.
+        if (grade < 0 || grade > assignment.maxPoints) {
             redirect.addFlashAttribute(
                     "error",
-                    "Grade must be between 0 and " + maxPoints);
-
+                    "Grade must be between 0 and " + assignment.maxPoints);
             return "redirect:" + draftUrl;
         }
 
-        // Validate feedback.
         if (feedback.length() > 4000) {
-
             redirect.addFlashAttribute(
                     "error",
                     "Feedback must be 4000 characters or fewer.");
-
             return "redirect:" + draftUrl;
         }
 
-        // Load additional Java files from the saved draft.
-        var draftFiles = assignmentDraftSourceFiles
-                .findByDraft_IdOrderByFilenameAsc(draft.id);
+        // Retrieve the student's saved draft, if one exists.
+        AssignmentDraft draft = assignmentDrafts
+                .findByStudent_IdAndAssignment_Id(studentId, assignmentId)
+                .orElse(null);
 
-        // Create a normal submission containing
-        // a snapshot of the student's saved code.
+        // Create a graded submission snapshot.
         Submission submission = new Submission();
+        submission.student = student;
+        submission.assignment = assignment;
 
-        submission.student = draft.student;
-        submission.assignment = draft.assignment;
-        submission.code =
-                draft.code == null ? "" : draft.code;
+        if (draft != null) {
+            submission.code = draft.code == null ? "" : draft.code;
+        } else {
+            // No student work exists. Record an empty submission,
+            // not the teacher's starter code.
+            submission.code = "";
+        }
 
         submission.submittedAt = Instant.now();
         submission.grade = grade;
         submission.feedback = feedback;
 
-        // Save the submission first so it has an ID.
         submission = submissions.saveAndFlush(submission);
 
-        // Copy all additional Java files into the
-        // submission snapshot.
-        for (AssignmentDraftSourceFile file : draftFiles) {
+        // Preserve additional Java files when grading a saved draft.
+        if (draft != null) {
+            for (AssignmentDraftSourceFile file :
+                    assignmentDraftSourceFiles
+                            .findByDraft_IdOrderByFilenameAsc(draft.id)) {
 
-            if ("Main.java".equals(file.getFilename())) {
-                continue;
+                if ("Main.java".equals(file.getFilename())) {
+                    continue;
+                }
+
+                submissionSourceFiles.save(
+                        new SubmissionSourceFile(
+                                submission,
+                                file.getFilename(),
+                                file.getCode()
+                        )
+                );
             }
-
-            submissionSourceFiles.save(
-                    new SubmissionSourceFile(
-                            submission,
-                            file.getFilename(),
-                            file.getCode()
-                    )
-            );
         }
 
         redirect.addFlashAttribute(
                 "success",
-                "Draft graded successfully!");
+                "Grade saved successfully!");
 
-        Long classId = draft.student.classPeriod.id;
-
-        return "redirect:/teacher/gradebook?classId=" + classId;
+        return "redirect:/teacher/gradebook?classId="
+                + student.classPeriod.id;
     }
 
     @PostMapping("/{id}/grade")
